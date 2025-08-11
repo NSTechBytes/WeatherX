@@ -84,6 +84,9 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="AssemblyInfo.cs" />
+    <Compile Include="JsonParser.cs" />
+    <Compile Include="Plugin.cs" />
+    <Compile Include="WeatherDescription.cs" />
     <Compile Include="WeatherX.cs" />
     <Compile Include="$(SolutionDir).\API\RainmeterAPI.cs" />
   </ItemGroup>
