@@ -1,10 +1,9 @@
 ﻿using System.Globalization;
 using System;
-using Rainmeter;
 
 public static class ParseHelper
 {
-    // JSON parsing functionality (moved from JsonParser.cs)
+
     public static double ParseJsonValue(string json, string section, string key)
     {
         try
@@ -45,7 +44,6 @@ public static class ParseHelper
         }
     }
 
-    // Section extraction methods
     public static string ExtractHourlySection(string json, int hourlyStart)
     {
         int braceStart = json.IndexOf("{", hourlyStart);
@@ -94,14 +92,12 @@ public static class ParseHelper
         return "";
     }
 
-    // Array parsing methods (excluding precipitation-related arrays)
     public static void ParseArrayValuesInSection(string section, string arrayName, double[] outputArray, int maxItems = -1)
     {
         try
         {
             if (string.IsNullOrEmpty(section)) return;
 
-            // Skip precipitation-related arrays
             if (arrayName.Contains("precipitation"))
                 return;
 
@@ -174,7 +170,6 @@ public static class ParseHelper
         {
             if (string.IsNullOrEmpty(section)) return;
 
-            // Skip precipitation-related arrays
             if (arrayName.Contains("precipitation"))
                 return;
 

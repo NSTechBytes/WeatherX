@@ -30,7 +30,6 @@ internal class Measure
     private string units;
     private string timezone;
 
-    // Current weather data (from current section)
     private double currentTemp = 0.0;
     private string currentCondition = "Unknown";
     private double currentHumidity = 0.0;
@@ -42,14 +41,12 @@ internal class Measure
     private double currentWindDirection = 0.0;
     private double currentWindGusts = 0.0;
 
-    // Solar radiation data (from hourly data)
     private double currentSolarRadiation = 0.0;
     private double currentDirectRadiation = 0.0;
     private double currentDiffuseRadiation = 0.0;
 
     private double todayUvIndex = 0.0;
 
-    // Daily forecast arrays (removed precipitation-related)
     private double[] forecastTempMax = new double[7];
     private double[] forecastTempMin = new double[7];
     private double[] forecastApparentTempMax = new double[7];
@@ -60,7 +57,6 @@ internal class Measure
     private string[] forecastSunrise = new string[7];
     private string[] forecastSunset = new string[7];
 
-    // Hourly arrays for 48 hours (removed precipitation-related)
     private double[] hourlyTemp = new double[48];
     private double[] hourlyHumidity = new double[48];
     private double[] hourlyWindSpeed = new double[48];
@@ -70,7 +66,6 @@ internal class Measure
     private int[] hourlyWeatherCode = new int[48];
     private string[] hourlyTime = new string[48];
 
-    // Solar radiation arrays for hourly data
     private double[] hourlySolarRadiation = new double[48];
     private double[] hourlyDirectRadiation = new double[48];
     private double[] hourlyDiffuseRadiation = new double[48];
@@ -98,7 +93,7 @@ internal class Measure
 
     private void InitializeArrays()
     {
-        // Daily forecast arrays
+
         for (int i = 0; i < 7; i++)
         {
             forecastTempMax[i] = 0.0;
@@ -112,7 +107,6 @@ internal class Measure
             forecastSunset[i] = "";
         }
 
-        // Hourly arrays
         for (int i = 0; i < 48; i++)
         {
             hourlyTemp[i] = 0.0;
@@ -279,14 +273,14 @@ internal class Measure
         return $"https://api.open-meteo.com/v1/forecast?" +
                $"latitude={latitude.ToString(CultureInfo.InvariantCulture)}&" +
                $"longitude={longitude.ToString(CultureInfo.InvariantCulture)}&" +
-               // Current weather (no precipitation)
+
                $"current=temperature_2m,relative_humidity_2m,weather_code,surface_pressure,wind_speed_10m," +
                $"apparent_temperature,dew_point_2m,wind_direction_10m,wind_gusts_10m&" +
-               // Hourly parameters (no precipitation)
+
                $"hourly=temperature_2m,relative_humidity_2m,wind_speed_10m," +
                $"apparent_temperature,cloud_cover,visibility,weather_code," +
                $"shortwave_radiation,direct_radiation,diffuse_radiation&" +
-               // Daily parameters (no precipitation)
+
                $"daily=weather_code,temperature_2m_max,temperature_2m_min,apparent_temperature_max," +
                $"apparent_temperature_min,wind_speed_10m_max,uv_index_max," +
                $"sunrise,sunset,shortwave_radiation_sum&" +
@@ -305,7 +299,6 @@ internal class Measure
             ParseDailyForecasts(jsonResponse);
             ParseHourlyData(jsonResponse);
 
-            // Update current weather from hourly data for solar radiation
             UpdateCurrentFromHourly();
 
             api?.Log(API.LogType.Debug, $"WeatherX: Comprehensive parsing complete - Temp: {currentTemp}°, Condition: {currentCondition}");
@@ -319,7 +312,7 @@ internal class Measure
 
     private void ParseCurrentWeather(string json)
     {
-        // Parse current weather from "current" section
+
         currentTemp = ParseHelper.ParseJsonValue(json, "\"current\"", "\"temperature_2m\"");
         currentHumidity = ParseHelper.ParseJsonValue(json, "\"current\"", "\"relative_humidity_2m\"");
         currentWindSpeed = ParseHelper.ParseJsonValue(json, "\"current\"", "\"wind_speed_10m\"");
@@ -336,7 +329,7 @@ internal class Measure
 
     private void UpdateCurrentFromHourly()
     {
-        // Get current hour data from hourly arrays for values not available in current section
+
         int currentHourIndex = DateTime.Now.Hour;
         if (currentHourIndex < 48)
         {
@@ -400,7 +393,6 @@ internal class Measure
 
             string hourlySection = ParseHelper.ExtractHourlySection(json, hourlyStart);
 
-            // Parse all hourly data (up to 48 hours) - no precipitation
             ParseHelper.ParseArrayValuesInSection(hourlySection, "\"temperature_2m\"", hourlyTemp, 48);
             ParseHelper.ParseArrayValuesInSection(hourlySection, "\"relative_humidity_2m\"", hourlyHumidity, 48);
             ParseHelper.ParseArrayValuesInSection(hourlySection, "\"wind_speed_10m\"", hourlyWindSpeed, 48);
@@ -408,12 +400,10 @@ internal class Measure
             ParseHelper.ParseArrayValuesInSection(hourlySection, "\"cloud_cover\"", hourlyCloudCover, 48);
             ParseHelper.ParseArrayValuesInSection(hourlySection, "\"visibility\"", hourlyVisibility, 48);
 
-            // Parse solar radiation data from hourly section
             ParseHelper.ParseArrayValuesInSection(hourlySection, "\"shortwave_radiation\"", hourlySolarRadiation, 48);
             ParseHelper.ParseArrayValuesInSection(hourlySection, "\"direct_radiation\"", hourlyDirectRadiation, 48);
             ParseHelper.ParseArrayValuesInSection(hourlySection, "\"diffuse_radiation\"", hourlyDiffuseRadiation, 48);
 
-            // Parse weather codes for hourly conditions
             double[] weatherCodes = new double[48];
             ParseHelper.ParseArrayValuesInSection(hourlySection, "\"weather_code\"", weatherCodes, 48);
             for (int i = 0; i < 48; i++)
@@ -438,7 +428,7 @@ internal class Measure
 
         switch (dataType.ToLower())
         {
-            // Current weather data
+
             case "currenttemp":
                 return currentTemp;
             case "currenthumidity":
@@ -460,7 +450,6 @@ internal class Measure
             case "currentuvindex":
                 return todayUvIndex;
 
-            // Current solar radiation from hourly data
             case "currentsolarradiation":
                 return currentSolarRadiation;
             case "currentdirectradiation":
@@ -468,7 +457,6 @@ internal class Measure
             case "currentdiffuseradiation":
                 return currentDiffuseRadiation;
 
-            // Daily forecast data (no precipitation)
             case "forecasttemp":
             case "forecasttempmax":
                 return forecastDay < forecastTempMax.Length ? forecastTempMax[forecastDay] : 0.0;
@@ -487,7 +475,6 @@ internal class Measure
             case "forecastsunset":
                 return forecastDay < forecastSunset.Length ? CommonHelper.ConvertIso8601ToHour(forecastSunset[forecastDay]) : 0.0;
 
-            // Hourly data (no precipitation)
             case "hourlytemp":
                 return targetHour < hourlyTemp.Length ? hourlyTemp[targetHour] : 0.0;
             case "hourlyhumidity":
@@ -501,7 +488,6 @@ internal class Measure
             case "hourlyvisibility":
                 return targetHour < hourlyVisibility.Length ? hourlyVisibility[targetHour] : 0.0;
 
-            // Hourly solar radiation
             case "hourlysolarradiation":
                 return targetHour < hourlySolarRadiation.Length ? hourlySolarRadiation[targetHour] : 0.0;
             case "hourlydirectradiation":
@@ -509,7 +495,6 @@ internal class Measure
             case "hourlydiffuseradiation":
                 return targetHour < hourlyDiffuseRadiation.Length ? hourlyDiffuseRadiation[targetHour] : 0.0;
 
-            // Legacy compatibility (uses current hour)
             case "currenthourtemp":
                 return hourlyTemp[DateTime.Now.Hour % 48];
             case "currenthourhumidity":
@@ -562,7 +547,6 @@ internal class Measure
             case "nexthourssummary":
                 return GetNextHoursSummary();
 
-            // Debug information
             case "debugsolarradiation":
                 return $"Solar: {currentSolarRadiation:F1} W/m² | Direct: {currentDirectRadiation:F1} | Diffuse: {currentDiffuseRadiation:F1}";
             case "debugcloudcover":
@@ -590,7 +574,6 @@ internal class Measure
 
                 summary.Append($"{time}: {hourlyTemp[hourIndex]:F0}°");
 
-                // Add condition to summary
                 if (hourIndex < hourlyWeatherCode.Length)
                 {
                     string condition = CommonHelper.GetWeatherDescription(hourlyWeatherCode[hourIndex]);
