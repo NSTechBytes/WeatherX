@@ -2,8 +2,50 @@
 using System;
 using Rainmeter;
 
-public static class Parser
+public static class ParseHelper
 {
+    // JSON parsing functionality (moved from JsonParser.cs)
+    public static double ParseJsonValue(string json, string section, string key)
+    {
+        try
+        {
+            int sectionStart = json.IndexOf(section);
+            if (sectionStart == -1) return 0.0;
+
+            int braceStart = json.IndexOf("{", sectionStart);
+            if (braceStart == -1) return 0.0;
+
+            int keyStart = json.IndexOf(key, braceStart);
+            if (keyStart == -1) return 0.0;
+
+            int colonPos = json.IndexOf(":", keyStart);
+            if (colonPos == -1) return 0.0;
+
+            int valueStart = colonPos + 1;
+            int valueEnd = json.IndexOfAny(new char[] { ',', '}', ']' }, valueStart);
+            if (valueEnd == -1) return 0.0;
+
+            string valueStr = json.Substring(valueStart, valueEnd - valueStart).Trim();
+
+            if (valueStr.StartsWith("\"") && valueStr.EndsWith("\""))
+            {
+                valueStr = valueStr.Substring(1, valueStr.Length - 2);
+            }
+
+            if (double.TryParse(valueStr, NumberStyles.Float, CultureInfo.InvariantCulture, out double result))
+            {
+                return result;
+            }
+
+            return 0.0;
+        }
+        catch
+        {
+            return 0.0;
+        }
+    }
+
+    // Section extraction methods
     public static string ExtractHourlySection(string json, int hourlyStart)
     {
         int braceStart = json.IndexOf("{", hourlyStart);
@@ -52,11 +94,16 @@ public static class Parser
         return "";
     }
 
+    // Array parsing methods (excluding precipitation-related arrays)
     public static void ParseArrayValuesInSection(string section, string arrayName, double[] outputArray, int maxItems = -1)
     {
         try
         {
             if (string.IsNullOrEmpty(section)) return;
+
+            // Skip precipitation-related arrays
+            if (arrayName.Contains("precipitation"))
+                return;
 
             int arrayStart = section.IndexOf(arrayName);
             if (arrayStart == -1) return;
@@ -120,11 +167,16 @@ public static class Parser
         }
         catch { }
     }
+
     public static void ParseStringArrayInSection(string section, string arrayName, string[] outputArray)
     {
         try
         {
             if (string.IsNullOrEmpty(section)) return;
+
+            // Skip precipitation-related arrays
+            if (arrayName.Contains("precipitation"))
+                return;
 
             int arrayStart = section.IndexOf(arrayName);
             if (arrayStart == -1) return;

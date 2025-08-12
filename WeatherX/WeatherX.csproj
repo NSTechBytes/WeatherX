@@ -85,7 +85,6 @@
   <ItemGroup>
     <Compile Include="AssemblyInfo.cs" />
     <Compile Include="CommonHelper.cs" />
-    <Compile Include="JsonParser.cs" />
     <Compile Include="ParseHelper.cs" />
     <Compile Include="Plugin.cs" />
     <Compile Include="WeatherDescription.cs" />
