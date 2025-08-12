@@ -203,7 +203,7 @@ internal class Measure
 
             using (TimeoutWebClient client = new TimeoutWebClient())
             {
-                client.Headers.Add("User-Agent", "WeatherX-Rainmeter-Plugin/2.2");
+                client.Headers.Add("User-Agent", "WeatherX-Rainmeter-Plugin/1.0");
                 client.Headers.Add("Accept", "application/json");
                 client.Encoding = Encoding.UTF8;
                 client.Timeout = 15000;
@@ -226,7 +226,7 @@ internal class Measure
 
                     using (TimeoutWebClient client = new TimeoutWebClient())
                     {
-                        client.Headers.Add("User-Agent", "WeatherX-Rainmeter-Plugin/2.2");
+                        client.Headers.Add("User-Agent", "WeatherX-Rainmeter-Plugin/1.0");
                         client.Headers.Add("Accept", "application/json");
                         client.Encoding = Encoding.UTF8;
                         client.Timeout = 15000;
