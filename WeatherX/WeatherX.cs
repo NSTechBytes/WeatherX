@@ -1,35 +1,90 @@
 ﻿using Rainmeter;
-using System.Runtime.InteropServices;
 using System;
 using System.Net;
-using System.IO;
 using System.Text;
 using System.Globalization;
+using System.Threading;
+using System.Threading.Tasks;
+
+public class TimeoutWebClient : WebClient
+{
+    public int Timeout { get; set; } = 10000;
+
+    protected override WebRequest GetWebRequest(Uri address)
+    {
+        WebRequest request = base.GetWebRequest(address);
+        request.Timeout = Timeout;
+        return request;
+    }
+}
 
 internal class Measure
 {
     private double latitude, longitude;
     private string dataType;
     private int forecastDay;
+    private int hourOffset;
     private int updateInterval;
     private DateTime lastUpdate;
     private API api;
+    private string units;
+    private string timezone;
 
-    // Simple weather data storage
+    // Current weather data (mostly from current hourly data)
     private double currentTemp = 0.0;
     private string currentCondition = "Unknown";
     private double currentHumidity = 0.0;
     private double currentWindSpeed = 0.0;
     private double currentPressure = 0.0;
+    private double currentApparentTemp = 0.0;
+    private double currentDewPoint = 0.0;
+    private double currentCloudCover = 0.0;
+    private double currentWindDirection = 0.0;
+    private double currentWindGusts = 0.0;
 
-    // Simple forecast arrays (7 days max)
+    // FIXED: Solar radiation data (from current hourly data)
+    private double currentSolarRadiation = 0.0;
+    private double currentDirectRadiation = 0.0;
+    private double currentDiffuseRadiation = 0.0;
+
+    private double todayUvIndex = 0.0;
+    private double currentHourPrecipitation = 0.0;
+
+    // Daily forecast arrays
     private double[] forecastTempMax = new double[7];
     private double[] forecastTempMin = new double[7];
+    private double[] forecastApparentTempMax = new double[7];
+    private double[] forecastApparentTempMin = new double[7];
     private string[] forecastConditions = new string[7];
+    private double[] forecastPrecipitationSum = new double[7];
+    private double[] forecastWindSpeedMax = new double[7];
+    private double[] forecastUvIndexMax = new double[7];
+    private string[] forecastSunrise = new string[7];
+    private string[] forecastSunset = new string[7];
+    private double[] forecastPrecipitationProbability = new double[7];
 
-    // Debug info
+    // FIXED: Enhanced hourly arrays for 48 hours
+    private double[] hourlyTemp = new double[48];
+    private double[] hourlyHumidity = new double[48];
+    private double[] hourlyPrecipitation = new double[48];
+    private double[] hourlyWindSpeed = new double[48];
+    private double[] hourlyApparentTemp = new double[48];
+    private double[] hourlyPrecipitationProb = new double[48]; // FIXED: Rain chance
+    private double[] hourlyCloudCover = new double[48];
+    private double[] hourlyVisibility = new double[48];
+    private int[] hourlyWeatherCode = new int[48];
+    private string[] hourlyTime = new string[48];
+
+    // FIXED: Solar radiation arrays for hourly data
+    private double[] hourlySolarRadiation = new double[48];
+    private double[] hourlyDirectRadiation = new double[48];
+    private double[] hourlyDiffuseRadiation = new double[48];
+
     private string lastError = "";
     private string lastApiUrl = "";
+    private volatile bool isUpdating = false;
+    private bool initialUpdateScheduled = false;
+    private Timer updateTimer;
 
     internal Measure()
     {
@@ -37,15 +92,49 @@ internal class Measure
         longitude = 0.0;
         dataType = "CurrentTemp";
         forecastDay = 0;
-        updateInterval = 600; // 10 minutes default
+        hourOffset = 0;
+        updateInterval = 600;
         lastUpdate = DateTime.MinValue;
+        units = "metric";
+        timezone = "auto";
 
-        // Initialize forecast arrays
+        InitializeArrays();
+    }
+
+    private void InitializeArrays()
+    {
+        // Daily forecast arrays
         for (int i = 0; i < 7; i++)
         {
             forecastTempMax[i] = 0.0;
             forecastTempMin[i] = 0.0;
+            forecastApparentTempMax[i] = 0.0;
+            forecastApparentTempMin[i] = 0.0;
             forecastConditions[i] = "Unknown";
+            forecastPrecipitationSum[i] = 0.0;
+            forecastWindSpeedMax[i] = 0.0;
+            forecastUvIndexMax[i] = 0.0;
+            forecastSunrise[i] = "";
+            forecastSunset[i] = "";
+            forecastPrecipitationProbability[i] = 0.0;
+        }
+
+        // Hourly arrays
+        for (int i = 0; i < 48; i++)
+        {
+            hourlyTemp[i] = 0.0;
+            hourlyHumidity[i] = 0.0;
+            hourlyPrecipitation[i] = 0.0;
+            hourlyWindSpeed[i] = 0.0;
+            hourlyApparentTemp[i] = 0.0;
+            hourlyPrecipitationProb[i] = 0.0;
+            hourlyCloudCover[i] = 0.0;
+            hourlyVisibility[i] = 0.0;
+            hourlyWeatherCode[i] = 0;
+            hourlyTime[i] = "";
+            hourlySolarRadiation[i] = 0.0;
+            hourlyDirectRadiation[i] = 0.0;
+            hourlyDiffuseRadiation[i] = 0.0;
         }
     }
 
@@ -57,9 +146,11 @@ internal class Measure
         longitude = api.ReadDouble("Longitude", 0.0);
         dataType = api.ReadString("DataType", "CurrentTemp");
         forecastDay = api.ReadInt("ForecastDay", 0);
+        hourOffset = api.ReadInt("HourOffset", 0);
         updateInterval = api.ReadInt("UpdateInterval", 600);
+        units = api.ReadString("Units", "metric").ToLower();
+        timezone = api.ReadString("Timezone", "auto");
 
-        // Validate coordinates
         if (latitude < -90 || latitude > 90 || longitude < -180 || longitude > 180)
         {
             lastError = "Invalid coordinates";
@@ -70,60 +161,77 @@ internal class Measure
             lastError = "";
         }
 
-        // Validate forecast day
         if (forecastDay < 0 || forecastDay > 6)
         {
             forecastDay = 0;
         }
 
-        // Force initial update
-        lastUpdate = DateTime.MinValue;
+        if (hourOffset < 0 || hourOffset > 47)
+        {
+            hourOffset = 0;
+        }
 
-        api.Log(API.LogType.Debug, $"WeatherX: Initialized with Lat={latitude}, Lon={longitude}, DataType={dataType}");
+        if (units != "metric" && units != "imperial")
+        {
+            units = "metric";
+        }
+
+        lastUpdate = DateTime.MinValue;
+        initialUpdateScheduled = false;
+        isUpdating = false;
+
+        updateTimer?.Dispose();
+
+        api.Log(API.LogType.Debug, $"WeatherX: Initialized with Lat={latitude}, Lon={longitude}, DataType={dataType}, Units={units}, HourOffset={hourOffset}");
     }
 
     internal double Update()
     {
-        // Check if update is needed
-        if (DateTime.Now.Subtract(lastUpdate).TotalSeconds >= updateInterval)
+        if (!initialUpdateScheduled && string.IsNullOrEmpty(lastError))
         {
-            UpdateWeatherData();
+            initialUpdateScheduled = true;
+            updateTimer = new Timer(async _ => await UpdateWeatherDataAsync(), null, 2000, Timeout.Infinite);
+        }
+        else if (DateTime.Now.Subtract(lastUpdate).TotalSeconds >= updateInterval && !isUpdating)
+        {
+            Task.Run(async () => await UpdateWeatherDataAsync());
         }
 
         return GetNumericValue();
     }
 
-    private void UpdateWeatherData()
+    private async Task UpdateWeatherDataAsync()
     {
+        if (isUpdating) return;
+
+        isUpdating = true;
+
         try
         {
             lastApiUrl = BuildApiUrl();
             api?.Log(API.LogType.Debug, $"WeatherX: Making API call to: {lastApiUrl}");
 
-            // Enable TLS 1.2 for SSL connections
             System.Net.ServicePointManager.SecurityProtocol =
                 System.Net.SecurityProtocolType.Tls12 |
                 System.Net.SecurityProtocolType.Tls11 |
                 System.Net.SecurityProtocolType.Tls;
 
-            // Use WebClient for simple HTTP requests (no external dependencies)
-            using (WebClient client = new WebClient())
+            using (TimeoutWebClient client = new TimeoutWebClient())
             {
-                client.Headers.Add("User-Agent", "WeatherX-Rainmeter-Plugin/1.0");
+                client.Headers.Add("User-Agent", "WeatherX-Rainmeter-Plugin/2.1");
                 client.Headers.Add("Accept", "application/json");
                 client.Encoding = Encoding.UTF8;
+                client.Timeout = 15000;
 
-                string response = client.DownloadString(lastApiUrl);
+                string response = await client.DownloadStringTaskAsync(lastApiUrl);
                 ParseWeatherData(response);
 
                 lastError = "";
                 lastUpdate = DateTime.Now;
-                api?.Log(API.LogType.Debug, $"WeatherX: Successfully updated weather data. Temp: {currentTemp}");
             }
         }
         catch (WebException ex)
         {
-            // Try HTTP fallback if HTTPS fails
             if (lastApiUrl.StartsWith("https://"))
             {
                 try
@@ -131,18 +239,19 @@ internal class Measure
                     api?.Log(API.LogType.Warning, $"WeatherX: HTTPS failed, trying HTTP fallback");
                     string httpUrl = lastApiUrl.Replace("https://", "http://");
 
-                    using (WebClient client = new WebClient())
+                    using (TimeoutWebClient client = new TimeoutWebClient())
                     {
-                        client.Headers.Add("User-Agent", "WeatherX-Rainmeter-Plugin/1.0");
+                        client.Headers.Add("User-Agent", "WeatherX-Rainmeter-Plugin/2.1");
                         client.Headers.Add("Accept", "application/json");
                         client.Encoding = Encoding.UTF8;
+                        client.Timeout = 15000;
 
-                        string response = client.DownloadString(httpUrl);
+                        string response = await client.DownloadStringTaskAsync(httpUrl);
                         ParseWeatherData(response);
 
                         lastError = "";
                         lastUpdate = DateTime.Now;
-                        api?.Log(API.LogType.Debug, $"WeatherX: HTTP fallback successful. Temp: {currentTemp}");
+                        api?.Log(API.LogType.Debug, $"WeatherX: HTTP fallback successful. Temp: {currentTemp}°");
                         return;
                     }
                 }
@@ -160,44 +269,57 @@ internal class Measure
             lastError = $"Error: {ex.Message}";
             api?.Log(API.LogType.Error, $"WeatherX: {lastError}");
         }
+        finally
+        {
+            isUpdating = false;
+
+            if (updateTimer != null)
+            {
+                updateTimer.Change(updateInterval * 1000, Timeout.Infinite);
+            }
+        }
     }
 
     private string BuildApiUrl()
     {
+        string tempUnit = units == "imperial" ? "fahrenheit" : "celsius";
+        string windUnit = units == "imperial" ? "mph" : "kmh";
+        string precipUnit = units == "imperial" ? "inch" : "mm";
+
+        // FIXED: Updated API URL with correct parameters based on Open-Meteo documentation
         return $"https://api.open-meteo.com/v1/forecast?" +
                $"latitude={latitude.ToString(CultureInfo.InvariantCulture)}&" +
                $"longitude={longitude.ToString(CultureInfo.InvariantCulture)}&" +
-               $"current=temperature_2m,relative_humidity_2m,weather_code,surface_pressure,wind_speed_10m&" +
-               $"daily=weather_code,temperature_2m_max,temperature_2m_min&" +
+               // FIXED: Current weather is actually from the current hour in hourly data
+               $"current=temperature_2m,relative_humidity_2m,weather_code,surface_pressure,wind_speed_10m," +
+               $"apparent_temperature,dew_point_2m,wind_direction_10m,wind_gusts_10m&" +
+               // FIXED: Updated hourly parameters with all required data including solar radiation and precipitation_probability
+               $"hourly=temperature_2m,relative_humidity_2m,precipitation,precipitation_probability,wind_speed_10m," +
+               $"apparent_temperature,cloud_cover,visibility,weather_code," +
+               $"shortwave_radiation,direct_radiation,diffuse_radiation&" +
+               $"daily=weather_code,temperature_2m_max,temperature_2m_min,apparent_temperature_max," +
+               $"apparent_temperature_min,precipitation_sum,wind_speed_10m_max,uv_index_max," +
+               $"sunrise,sunset,precipitation_probability_max,shortwave_radiation_sum&" +
+               $"temperature_unit={tempUnit}&" +
+               $"wind_speed_unit={windUnit}&" +
+               $"precipitation_unit={precipUnit}&" +
                $"forecast_days=7&" +
-               $"timezone=auto";
+               $"forecast_hours=48&" +
+               $"timezone={timezone}";
     }
 
-    private void ParseWeatherData(string jsonResponse)
+    public void ParseWeatherData(string jsonResponse)
     {
         try
         {
-            // Simple JSON parsing without external libraries
-            // Parse current temperature
-            currentTemp = JsonParser.ParseJsonValue(jsonResponse, "\"current\"", "\"temperature_2m\"");
-
-            // Parse current humidity
-            currentHumidity = JsonParser.ParseJsonValue(jsonResponse, "\"current\"", "\"relative_humidity_2m\"");
-
-            // Parse current wind speed
-            currentWindSpeed = JsonParser.ParseJsonValue(jsonResponse, "\"current\"", "\"wind_speed_10m\"");
-
-            // Parse current pressure
-            currentPressure = JsonParser.ParseJsonValue(jsonResponse, "\"current\"", "\"surface_pressure\"");
-
-            // Parse current weather code
-            int weatherCode = (int)JsonParser.ParseJsonValue(jsonResponse, "\"current\"", "\"weather_code\"");
-            currentCondition = GetWeatherDescription(weatherCode);
-
-            // Parse daily forecasts
+            ParseCurrentWeather(jsonResponse);
             ParseDailyForecasts(jsonResponse);
+            ParseHourlyData(jsonResponse);
 
-            api?.Log(API.LogType.Debug, $"WeatherX: Parsed - Temp: {currentTemp}, Condition: {currentCondition}");
+            // FIXED: Update current weather from current hour data
+            UpdateCurrentFromHourly();
+
+            api?.Log(API.LogType.Debug, $"WeatherX: Comprehensive parsing complete - Temp: {currentTemp}°, Condition: {currentCondition}");
         }
         catch (Exception ex)
         {
@@ -206,28 +328,76 @@ internal class Measure
         }
     }
 
+    private void ParseCurrentWeather(string json)
+    {
+        // Parse basic current weather from "current" section
+        currentTemp = JsonParser.ParseJsonValue(json, "\"current\"", "\"temperature_2m\"");
+        currentHumidity = JsonParser.ParseJsonValue(json, "\"current\"", "\"relative_humidity_2m\"");
+        currentWindSpeed = JsonParser.ParseJsonValue(json, "\"current\"", "\"wind_speed_10m\"");
+        currentPressure = JsonParser.ParseJsonValue(json, "\"current\"", "\"surface_pressure\"");
+
+        currentApparentTemp = JsonParser.ParseJsonValue(json, "\"current\"", "\"apparent_temperature\"");
+        currentDewPoint = JsonParser.ParseJsonValue(json, "\"current\"", "\"dew_point_2m\"");
+        currentWindDirection = JsonParser.ParseJsonValue(json, "\"current\"", "\"wind_direction_10m\"");
+        currentWindGusts = JsonParser.ParseJsonValue(json, "\"current\"", "\"wind_gusts_10m\"");
+
+        int weatherCode = (int)JsonParser.ParseJsonValue(json, "\"current\"", "\"weather_code\"");
+        currentCondition = CommonHelper.GetWeatherDescription(weatherCode);
+    }
+
+    private void UpdateCurrentFromHourly()
+    {
+        // FIXED: Get current hour data from hourly arrays for values not available in current section
+        int currentHourIndex = DateTime.Now.Hour;
+        if (currentHourIndex < 48)
+        {
+            currentCloudCover = hourlyCloudCover[currentHourIndex];
+            currentSolarRadiation = hourlySolarRadiation[currentHourIndex];
+            currentDirectRadiation = hourlyDirectRadiation[currentHourIndex];
+            currentDiffuseRadiation = hourlyDiffuseRadiation[currentHourIndex];
+            currentHourPrecipitation = hourlyPrecipitation[currentHourIndex];
+        }
+    }
+
     private void ParseDailyForecasts(string json)
     {
         try
         {
-            // Find daily section
             int dailyStart = json.IndexOf("\"daily\"");
-            if (dailyStart == -1) return;
+            if (dailyStart == -1)
+            {
+                api?.Log(API.LogType.Warning, "WeatherX: Daily section not found in JSON");
+                return;
+            }
 
-            // Parse temperature_2m_max array
-            ParseArrayValues(json, "\"temperature_2m_max\"", forecastTempMax);
+            string dailySection = Parser.ExtractDailySection(json, dailyStart);
 
-            // Parse temperature_2m_min array
-            ParseArrayValues(json, "\"temperature_2m_min\"", forecastTempMin);
+            Parser.ParseArrayValuesInSection(dailySection, "\"temperature_2m_max\"", forecastTempMax);
+            Parser.ParseArrayValuesInSection(dailySection, "\"temperature_2m_min\"", forecastTempMin);
+            Parser.ParseArrayValuesInSection(dailySection, "\"apparent_temperature_max\"", forecastApparentTempMax);
+            Parser.ParseArrayValuesInSection(dailySection, "\"apparent_temperature_min\"", forecastApparentTempMin);
+            Parser.ParseArrayValuesInSection(dailySection, "\"precipitation_sum\"", forecastPrecipitationSum);
+            Parser.ParseArrayValuesInSection(dailySection, "\"wind_speed_10m_max\"", forecastWindSpeedMax);
+            Parser.ParseArrayValuesInSection(dailySection, "\"uv_index_max\"", forecastUvIndexMax);
+            Parser.ParseArrayValuesInSection(dailySection, "\"precipitation_probability_max\"", forecastPrecipitationProbability);
 
-            // Parse weather codes and convert to conditions
+            Parser.ParseStringArrayInSection(dailySection, "\"sunrise\"", forecastSunrise);
+            Parser.ParseStringArrayInSection(dailySection, "\"sunset\"", forecastSunset);
+
             double[] weatherCodes = new double[7];
-            ParseArrayValues(json, "\"weather_code\"", weatherCodes);
+            Parser.ParseArrayValuesInSection(dailySection, "\"weather_code\"", weatherCodes);
 
             for (int i = 0; i < 7; i++)
             {
-                forecastConditions[i] = GetWeatherDescription((int)weatherCodes[i]);
+                forecastConditions[i] = CommonHelper.GetWeatherDescription((int)weatherCodes[i]);
             }
+
+            if (forecastUvIndexMax.Length > 0)
+            {
+                todayUvIndex = forecastUvIndexMax[0];
+            }
+
+            api?.Log(API.LogType.Debug, $"WeatherX: Daily forecasts parsed - Day 0: Max={forecastTempMax[0]}°, UV={forecastUvIndexMax[0]}");
         }
         catch (Exception ex)
         {
@@ -235,41 +405,61 @@ internal class Measure
         }
     }
 
-    private void ParseArrayValues(string json, string arrayName, double[] outputArray)
+    private void ParseHourlyData(string json)
     {
         try
         {
-            int arrayStart = json.IndexOf(arrayName);
-            if (arrayStart == -1) return;
+            int hourlyStart = json.IndexOf("\"hourly\"");
+            if (hourlyStart == -1) return;
 
-            int bracketStart = json.IndexOf("[", arrayStart);
-            if (bracketStart == -1) return;
+            string hourlySection = Parser.ExtractHourlySection(json, hourlyStart);
 
-            int bracketEnd = json.IndexOf("]", bracketStart);
-            if (bracketEnd == -1) return;
+            // Parse all hourly data (up to 48 hours)
+            Parser.ParseArrayValuesInSection(hourlySection, "\"temperature_2m\"", hourlyTemp, 48);
+            Parser.ParseArrayValuesInSection(hourlySection, "\"relative_humidity_2m\"", hourlyHumidity, 48);
+            Parser.ParseArrayValuesInSection(hourlySection, "\"precipitation\"", hourlyPrecipitation, 48);
+            Parser.ParseArrayValuesInSection(hourlySection, "\"wind_speed_10m\"", hourlyWindSpeed, 48);
+            Parser.ParseArrayValuesInSection(hourlySection, "\"apparent_temperature\"", hourlyApparentTemp, 48);
 
-            string arrayContent = json.Substring(bracketStart + 1, bracketEnd - bracketStart - 1);
-            string[] values = arrayContent.Split(',');
+            // FIXED: Parse precipitation probability (rain chance)
+            Parser.ParseArrayValuesInSection(hourlySection, "\"precipitation_probability\"", hourlyPrecipitationProb, 48);
 
-            for (int i = 0; i < Math.Min(values.Length, outputArray.Length); i++)
+            // FIXED: Parse cloud cover from hourly data
+            Parser.ParseArrayValuesInSection(hourlySection, "\"cloud_cover\"", hourlyCloudCover, 48);
+
+            Parser.ParseArrayValuesInSection(hourlySection, "\"visibility\"", hourlyVisibility, 48);
+
+            // FIXED: Parse solar radiation data from hourly section
+            Parser.ParseArrayValuesInSection(hourlySection, "\"shortwave_radiation\"", hourlySolarRadiation, 48);
+            Parser.ParseArrayValuesInSection(hourlySection, "\"direct_radiation\"", hourlyDirectRadiation, 48);
+            Parser.ParseArrayValuesInSection(hourlySection, "\"diffuse_radiation\"", hourlyDiffuseRadiation, 48);
+
+            // Parse weather codes for hourly conditions
+            double[] weatherCodes = new double[48];
+            Parser.ParseArrayValuesInSection(hourlySection, "\"weather_code\"", weatherCodes, 48);
+            for (int i = 0; i < 48; i++)
             {
-                string value = values[i].Trim();
-                if (double.TryParse(value, NumberStyles.Float, CultureInfo.InvariantCulture, out double result))
-                {
-                    outputArray[i] = result;
-                }
+                hourlyWeatherCode[i] = (int)weatherCodes[i];
             }
+
+            Parser.ParseTimeArray(hourlySection, hourlyTime);
+
+            api?.Log(API.LogType.Debug, $"WeatherX: Hourly data parsed - First hour precipitation: {hourlyPrecipitation[0]}, rain chance: {hourlyPrecipitationProb[0]}%");
+
         }
-        catch
+        catch (Exception ex)
         {
-            // Ignore parsing errors for individual arrays
+            api?.Log(API.LogType.Warning, $"WeatherX: Hourly data parsing error: {ex.Message}");
         }
     }
 
     private double GetNumericValue()
     {
+        int targetHour = CommonHelper.GetTargetHourIndex(hourOffset);
+
         switch (dataType.ToLower())
         {
+            // Current weather data
             case "currenttemp":
                 return currentTemp;
             case "currenthumidity":
@@ -278,11 +468,97 @@ internal class Measure
                 return currentWindSpeed;
             case "currentpressure":
                 return currentPressure;
+            case "currentapparenttemp":
+                return currentApparentTemp;
+            case "currentdewpoint":
+                return currentDewPoint;
+
+            // FIXED: Current cloud cover from hourly data
+            case "currentcloudcover":
+                return currentCloudCover;
+
+            case "currentwinddirection":
+                return currentWindDirection;
+            case "currentwindgusts":
+                return currentWindGusts;
+            case "currentuvindex":
+                return todayUvIndex;
+            case "currentprecipitation":
+                return currentHourPrecipitation;
+
+            // FIXED: Current solar radiation from hourly data
+            case "currentsolarradiation":
+                return currentSolarRadiation;
+            case "currentdirectradiation":
+                return currentDirectRadiation;
+            case "currentdiffuseradiation":
+                return currentDiffuseRadiation;
+
+            // Daily forecast data
             case "forecasttemp":
             case "forecasttempmax":
                 return forecastDay < forecastTempMax.Length ? forecastTempMax[forecastDay] : 0.0;
             case "forecasttempmin":
                 return forecastDay < forecastTempMin.Length ? forecastTempMin[forecastDay] : 0.0;
+            case "forecastapparenttempmax":
+                return forecastDay < forecastApparentTempMax.Length ? forecastApparentTempMax[forecastDay] : 0.0;
+            case "forecastapparenttempmin":
+                return forecastDay < forecastApparentTempMin.Length ? forecastApparentTempMin[forecastDay] : 0.0;
+            case "forecastprecipitation":
+                return forecastDay < forecastPrecipitationSum.Length ? forecastPrecipitationSum[forecastDay] : 0.0;
+            case "forecastwindspeed":
+                return forecastDay < forecastWindSpeedMax.Length ? forecastWindSpeedMax[forecastDay] : 0.0;
+            case "forecastuvindex":
+                return forecastDay < forecastUvIndexMax.Length ? forecastUvIndexMax[forecastDay] : 0.0;
+            case "forecastprecipitationprobability":
+                return forecastDay < forecastPrecipitationProbability.Length ? forecastPrecipitationProbability[forecastDay] : 0.0;
+            case "forecastsunrise":
+                return forecastDay < forecastSunrise.Length ? CommonHelper.ConvertIso8601ToHour(forecastSunrise[forecastDay]) : 0.0;
+            case "forecastsunset":
+                return forecastDay < forecastSunset.Length ? CommonHelper.ConvertIso8601ToHour(forecastSunset[forecastDay]) : 0.0;
+
+            // Enhanced hourly data (current hour or offset)
+            case "hourlytemp":
+                return targetHour < hourlyTemp.Length ? hourlyTemp[targetHour] : 0.0;
+            case "hourlyhumidity":
+                return targetHour < hourlyHumidity.Length ? hourlyHumidity[targetHour] : 0.0;
+
+            // FIXED: Hourly precipitation
+            case "hourlyprecipitation":
+                return targetHour < hourlyPrecipitation.Length ? hourlyPrecipitation[targetHour] : 0.0;
+            case "hourlywindspeed":
+                return targetHour < hourlyWindSpeed.Length ? hourlyWindSpeed[targetHour] : 0.0;
+            case "hourlyapparenttemp":
+                return targetHour < hourlyApparentTemp.Length ? hourlyApparentTemp[targetHour] : 0.0;
+
+            // FIXED: Hourly rain chance (precipitation probability)
+            case "hourlyprecipitationprob":
+            case "hourlyrainchance":
+                return targetHour < hourlyPrecipitationProb.Length ? hourlyPrecipitationProb[targetHour] : 0.0;
+
+            case "hourlycloudcover":
+                return targetHour < hourlyCloudCover.Length ? hourlyCloudCover[targetHour] : 0.0;
+            case "hourlyvisibility":
+                return targetHour < hourlyVisibility.Length ? hourlyVisibility[targetHour] : 0.0;
+
+            // FIXED: Hourly solar radiation
+            case "hourlysolarradiation":
+                return targetHour < hourlySolarRadiation.Length ? hourlySolarRadiation[targetHour] : 0.0;
+            case "hourlydirectradiation":
+                return targetHour < hourlyDirectRadiation.Length ? hourlyDirectRadiation[targetHour] : 0.0;
+            case "hourlydiffuseradiation":
+                return targetHour < hourlyDiffuseRadiation.Length ? hourlyDiffuseRadiation[targetHour] : 0.0;
+
+            // Legacy compatibility (uses current hour)
+            case "currenthourtemp":
+                return hourlyTemp[DateTime.Now.Hour % 48];
+            case "currenthourhumidity":
+                return hourlyHumidity[DateTime.Now.Hour % 48];
+            case "currenthourprecipitation":
+                return hourlyPrecipitation[DateTime.Now.Hour % 48];
+            case "currenthourwindspeed":
+                return hourlyWindSpeed[DateTime.Now.Hour % 48];
+
             default:
                 return 0.0;
         }
@@ -290,24 +566,96 @@ internal class Measure
 
     internal string GetStringValue()
     {
+        int targetHour = CommonHelper.GetTargetHourIndex(hourOffset);
+
         switch (dataType.ToLower())
         {
             case "currentcondition":
                 return currentCondition;
             case "forecastcondition":
                 return forecastDay < forecastConditions.Length ? forecastConditions[forecastDay] : "Unknown";
+            case "hourlycondition":
+                return targetHour < hourlyWeatherCode.Length ? CommonHelper.GetWeatherDescription(hourlyWeatherCode[targetHour]) : "Unknown";
+            case "currentwinddirectiontext":
+                return CommonHelper.GetWindDirectionText(currentWindDirection);
             case "debugerror":
                 return string.IsNullOrEmpty(lastError) ? "No Error" : lastError;
             case "debugurl":
                 return lastApiUrl;
+            case "debugdaily":
+                return $"Day{forecastDay}: Max={forecastTempMax[forecastDay]:F1}°, Min={forecastTempMin[forecastDay]:F1}°, {forecastConditions[forecastDay]}";
+            case "debughourly":
+                return $"Hour+{hourOffset}: Temp={hourlyTemp[targetHour]:F1}°, {CommonHelper.GetWeatherDescription(hourlyWeatherCode[targetHour])}, Precip={hourlyPrecipitation[targetHour]:F1}mm, Rain%={hourlyPrecipitationProb[targetHour]:F0}%";
+            case "status":
+                return isUpdating ? "Updating..." : (lastError.Length > 0 ? "Error" : "Ready");
+            case "forecastsunrisetext":
+                return forecastDay < forecastSunrise.Length ? CommonHelper.ConvertIso8601ToTime(forecastSunrise[forecastDay]) : "N/A";
+            case "forecastsunsettext":
+                return forecastDay < forecastSunset.Length ? CommonHelper.ConvertIso8601ToTime(forecastSunset[forecastDay]) : "N/A";
+            case "hourlytime":
+                return targetHour < hourlyTime.Length ? hourlyTime[targetHour] : "";
+            case "currenthourlytime":
+                int currentHour = DateTime.Now.Hour % 48;
+                return currentHour < hourlyTime.Length ? hourlyTime[currentHour] : "";
+            case "uvindextext":
+                return CommonHelper.GetUvIndexDescription(todayUvIndex);
+            case "nexthourssummary":
+                return GetNextHoursSummary();
+
+            // FIXED: Debug information for new features
+            case "debugsolarradiation":
+                return $"Solar: {currentSolarRadiation:F1} W/m² | Direct: {currentDirectRadiation:F1} | Diffuse: {currentDiffuseRadiation:F1}";
+            case "debugcloudcover":
+                return $"Current Clouds: {currentCloudCover:F0}% | Next hour: {(targetHour < hourlyCloudCover.Length ? hourlyCloudCover[targetHour].ToString("F0") + "%" : "N/A")}";
+            case "debugprecipitation":
+                return $"Current Precip: {currentHourPrecipitation:F2}mm | Next hour: {(targetHour < hourlyPrecipitation.Length ? hourlyPrecipitation[targetHour].ToString("F2") + "mm" : "N/A")}";
+            case "debugrainchance":
+                return $"Rain chance next {hourOffset}h: {(targetHour < hourlyPrecipitationProb.Length ? hourlyPrecipitationProb[targetHour].ToString("F0") + "%" : "N/A")}";
+
             default:
                 double value = GetNumericValue();
                 return value.ToString("F1", CultureInfo.InvariantCulture);
         }
     }
 
-    private string GetWeatherDescription(int weatherCode)
+    private string GetNextHoursSummary()
     {
-        return WeatherDescriptions.GetWeatherDescription(weatherCode);
+        var summary = new StringBuilder();
+        int currentHour = DateTime.Now.Hour;
+
+        for (int i = 1; i <= Math.Min(6, 47 - currentHour); i++)
+        {
+            int hourIndex = currentHour + i;
+            if (hourIndex < hourlyTemp.Length)
+            {
+                string time = hourIndex < hourlyTime.Length ?
+                    CommonHelper.ConvertIso8601ToTime(hourlyTime[hourIndex]) :
+                    DateTime.Now.AddHours(i).ToString("HH:mm");
+
+                summary.Append($"{time}: {hourlyTemp[hourIndex]:F0}°");
+
+                // FIXED: Add rain chance to summary
+                if (hourlyPrecipitationProb[hourIndex] > 20)
+                {
+                    summary.Append($" ({hourlyPrecipitationProb[hourIndex]:F0}% rain)");
+                }
+                else if (hourlyPrecipitation[hourIndex] > 0.1)
+                {
+                    summary.Append($" ({hourlyPrecipitation[hourIndex]:F1}mm)");
+                }
+
+                if (i < Math.Min(6, 47 - currentHour))
+                {
+                    summary.Append(" | ");
+                }
+            }
+        }
+
+        return summary.ToString();
+    }
+
+    ~Measure()
+    {
+        updateTimer?.Dispose();
     }
 }
