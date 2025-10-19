@@ -1,3 +1,4 @@
+#usage -----> powershell -ExecutionPolicy Bypass -Command "& {. .\Build.ps1; Dist -major 1 -minor 0 -patch 0}"
 $msbuild = "C:\Program Files\Microsoft Visual Studio\2022\Community\Msbuild\Current\Bin\MSBuild.exe"
 
 function Add-RMSkinFooter {
@@ -12,21 +13,21 @@ function Add-RMSkinFooter {
     $zipSize = [long](Get-Item $ZipPath).Length
 
     try {
-
+        # Use the GitHub Actions method that works
         $sizeBytes = [System.BitConverter]::GetBytes($zipSize)
-        Add-Content -Path $ZipPath -Value $sizeBytes -AsByteStream
+        Add-Content -Path $ZipPath -Value $sizeBytes -Encoding Byte
 
         $flags = [byte]0
-        Add-Content -Path $ZipPath -Value $flags -AsByteStream
+        Add-Content -Path $ZipPath -Value $flags -Encoding Byte
 
-        $rmskin = [System.Text.Encoding]::ASCII.GetBytes("RMSKIN`0")
-        Add-Content -Path $ZipPath -Value $rmskin -AsByteStream
+        $rmskin = [string]"RMSKIN`0"
+        Add-Content -Path $ZipPath -Value $rmskin -NoNewLine -Encoding ASCII
 
-        Write-Host "Added RMSKIN footer using AsByteStream method" -ForegroundColor Green
+        Write-Host "Added RMSKIN footer using GitHub Actions method" -ForegroundColor Green
         return
     }
     catch {
-        Write-Host "AsByteStream method failed, trying alternative..." -ForegroundColor Yellow
+        Write-Host "GitHub Actions method failed, trying FileStream..." -ForegroundColor Yellow
     }
 
     try {
@@ -121,7 +122,8 @@ function New-Package {
     }
     $iniContent = $iniLines -join "`r`n"
     $iniPath = Join-Path $temp "RMSKIN.ini"
-    $iniContent | Set-Content -Path $iniPath -Encoding UTF8
+    # Use ASCII encoding without trailing newline like GitHub Actions
+    $iniContent | Set-Content -Path $iniPath -Encoding ASCII -NoNewline
 
     if (-not $Quiet) { Write-Host "Created RMSKIN.ini" -ForegroundColor Cyan }
 
@@ -617,13 +619,27 @@ function Dist {
     # Create plugin ZIP file
     $pluginZip = New-PluginZip -Name $skinDef.name -Version $ver
     if ($pluginZip) {
-        $pluginZipFullPath = [System.IO.Path]::GetFullPath($pluginZip)
+        try {
+            $pluginZipFullPath = [System.IO.Path]::GetFullPath($pluginZip)
+        } catch {
+            $pluginZipFullPath = (Resolve-Path $pluginZip -ErrorAction SilentlyContinue).Path
+            if (-not $pluginZipFullPath) {
+                $pluginZipFullPath = $pluginZip
+            }
+        }
         Write-Host "Plugin ZIP created at: $pluginZipFullPath" -ForegroundColor Green
     }
 
     # Create RMSKIN package
     $output = New-Package -RootConfig $root
-    $outputFullPath = [System.IO.Path]::GetFullPath($output)
+    try {
+        $outputFullPath = [System.IO.Path]::GetFullPath($output)
+    } catch {
+        $outputFullPath = (Resolve-Path $output -ErrorAction SilentlyContinue).Path
+        if (-not $outputFullPath) {
+            $outputFullPath = $output
+        }
+    }
     Write-Host "RMSKIN packaged: $outputFullPath" -ForegroundColor Green
     
     Write-Host "`nBuild completed successfully!" -ForegroundColor Green

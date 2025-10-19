@@ -1,21 +1,21 @@
-{
-  "skinDir": ".\\Resources\\Skins",
-  "version": "1.0.0",
-  "minimumVersion": "4.5",
-  "author": "nstechbytes",
-  "variableFiles": "",
-  "minimumWindows": "5.1",
-  "plugins": [
-    {
-      "x64": ".\\dist\\x64",
-      "x32": ".\\dist\\x32",
-      "name": "WeatherX.dll"
-    }
-  ],
-  "name": "WeatherX",
-  "loadType": "Skin",
-  "load": "WeatherX\\Main.ini",
-  "headerImage": ".\\Resources\\banner.bmp",
-  "configPrefix": "WeatherX",
-  "output": ".\\dist\\WeatherX_v1.0.0.rmskin"
+﻿{
+    "skinDir":  ".\\Resources\\Skins",
+    "version":  "1.0.0",
+    "minimumVersion":  "4.5",
+    "author":  "nstechbytes",
+    "variableFiles":  "",
+    "minimumWindows":  "5.1",
+    "plugins":  [
+                    {
+                        "x64":  ".\\dist\\x64",
+                        "x32":  ".\\dist\\x32",
+                        "name":  "WeatherX.dll"
+                    }
+                ],
+    "name":  "WeatherX",
+    "loadType":  "Skin",
+    "load":  "WeatherX\\Main.ini",
+    "headerImage":  ".\\Resources\\banner.bmp",
+    "configPrefix":  "WeatherX",
+    "output":  ".\\dist\\WeatherX_v1.0.0.rmskin"
 }
