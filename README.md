@@ -328,8 +328,7 @@ The plugin translates numeric weather codes into descriptive text:
 - Rainmeter 4.5 or later
 - .NET Framework 4.7.2 or later
 - Internet connection
-- Windows 5.1 or later
-
+  
 ## License
 
 MIT
