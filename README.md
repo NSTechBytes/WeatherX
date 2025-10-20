@@ -5,6 +5,10 @@
 
 A comprehensive weather plugin for Rainmeter that provides current weather conditions, forecasts, and detailed meteorological data using the Open-Meteo API.
 
+## Preview
+
+![WeatherX Skin Preview](https://github.com/NSTechBytes/WeatherX/blob/main/.github/preview.png)
+
 ## Features
 
 - **Real-time Weather Data**: Current temperature, humidity, wind conditions, and more
@@ -18,10 +22,17 @@ A comprehensive weather plugin for Rainmeter that provides current weather condi
 
 ## Installation
 
-1. Copy the `WeatherX.dll` file to your Rainmeter plugins folder
-2. Place the `.ini` skin files in your Rainmeter skins directory
-3. Configure your coordinates in the skin variables
-4. Refresh Rainmeter
+### Option 1: RMSKIN Package (Recommended)
+1. Download the latest `WeatherX_v*.rmskin` file from [Releases](https://github.com/NSTechBytes/WeatherX/releases)
+2. Double-click the `.rmskin` file to automatically install in Rainmeter
+3. Load the WeatherX skin from Rainmeter's skin browser
+4. Configure your coordinates in the skin variables
+
+### Option 2: Manual Installation
+1. Download the plugin ZIP file from [Releases](https://github.com/NSTechBytes/WeatherX/releases)
+2. Extract the appropriate DLL file (`x64` or `x32`) to your Rainmeter plugins folder
+3. Place the skin files in your Rainmeter skins directory
+4. Configure your coordinates and refresh Rainmeter
 
 ## Configuration
 
@@ -294,11 +305,30 @@ The plugin translates numeric weather codes into descriptive text:
 - Memory-efficient data storage
 - Non-blocking asynchronous updates
 
+## Building from Source
+
+### Prerequisites
+- Visual Studio 2022 with C++ development tools
+- .NET Framework 4.7.2 or later
+- PowerShell (for build script)
+
+### Build Instructions
+1. Clone the repository
+2. Open PowerShell in the project directory
+3. Run the build script:
+   ```powershell
+   powershell -ExecutionPolicy Bypass -Command ". .\Build.ps1; Dist -major 1 -minor 0 -patch 0"
+   ```
+4. Find the built files in the `dist/` folder:
+   - `WeatherX_v*.rmskin` - Complete skin package
+   - `WeatherX_v*_x64_x86_dll.zip` - Plugin DLLs only
+
 ## Requirements
 
-- Rainmeter 4.0 or later
+- Rainmeter 4.5 or later
 - .NET Framework 4.7.2 or later
 - Internet connection
+- Windows 5.1 or later
 
 ## License
 
