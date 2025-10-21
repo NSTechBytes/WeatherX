@@ -1,6 +1,6 @@
 ﻿{
     "skinDir":  ".\\Resources\\Skins",
-    "version":  "1.0.0",
+    "version":  "1.1.0",
     "minimumVersion":  "4.5",
     "author":  "nstechbytes",
     "variableFiles":  "",
@@ -17,5 +17,5 @@
     "load":  "WeatherX\\Main.ini",
     "headerImage":  ".\\Resources\\banner.bmp",
     "configPrefix":  "WeatherX",
-    "output":  ".\\dist\\WeatherX_v1.0.0.rmskin"
+    "output":  ".\\dist\\WeatherX_v1.1.0.rmskin"
 }

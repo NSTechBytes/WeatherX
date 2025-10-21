@@ -1,6 +1,6 @@
 # WeatherX Plugin for Rainmeter
 [![License: MIT](https://img.shields.io/badge/License-MIT-lightgrey.svg)]()
-[![Version](https://img.shields.io/badge/version-1.0-blue.svg)]()
+[![Version](https://img.shields.io/badge/version-1.0.1-blue.svg)]()
 [![Platform](https://img.shields.io/badge/platform-Windows-lightblue.svg)]()
 
 A comprehensive weather plugin for Rainmeter that provides current weather conditions, forecasts, and detailed meteorological data using the Open-Meteo API.
@@ -16,6 +16,8 @@ A comprehensive weather plugin for Rainmeter that provides current weather condi
 - **48-Hour Forecasts**: Detailed hourly weather predictions
 - **Solar Radiation Data**: UV index, solar radiation, direct and diffuse radiation
 - **Comprehensive Metrics**: Apparent temperature, dew point, visibility, cloud cover
+- **Day/Night Detection**: Automatic day/night status for dynamic theming
+- **Numeric Weather Codes**: Both descriptive text and numeric codes for weather conditions
 - **Multiple Units**: Support for metric and imperial units
 - **Automatic Updates**: Configurable update intervals
 - **Error Handling**: Built-in debugging and status reporting
@@ -71,6 +73,10 @@ The plugin supports numerous `DataType` options for different weather measuremen
 | `CurrentSolarRadiation` | Solar radiation | Number | W/m² |
 | `CurrentDirectRadiation` | Direct solar radiation | Number | W/m² |
 | `CurrentDiffuseRadiation` | Diffuse solar radiation | Number | W/m² |
+| `CurrentIsDay` | Day/night status | Number | 1.0 = Day, 0.0 = Night |
+| `CurrentIsDayText` | Day/night status as text | String | "Day" or "Night" |
+| `CurrentWeatherCode` | Weather code as number | Number | 0, 1, 2, 45, 61, etc. |
+| `CurrentWeatherCodeText` | Weather code as text | String | "0", "1", "2", "45", "61", etc. |
 
 #### Daily Forecast Data
 
@@ -87,6 +93,8 @@ The plugin supports numerous `DataType` options for different weather measuremen
 | `ForecastSunset` | Sunset time (hour value) | Number | `ForecastDay=0-6` |
 | `ForecastSunriseText` | Sunrise time as text | String | `ForecastDay=0-6` |
 | `ForecastSunsetText` | Sunset time as text | String | `ForecastDay=0-6` |
+| `ForecastWeatherCode` | Weather code as number | Number | `ForecastDay=0-6` |
+| `ForecastWeatherCodeText` | Weather code as text | String | `ForecastDay=0-6` |
 
 #### Hourly Forecast Data
 
@@ -103,6 +111,8 @@ The plugin supports numerous `DataType` options for different weather measuremen
 | `HourlyDirectRadiation` | Hourly direct radiation | Number | `HourOffset=0-47` |
 | `HourlyDiffuseRadiation` | Hourly diffuse radiation | Number | `HourOffset=0-47` |
 | `HourlyTime` | Hourly timestamp | String | `HourOffset=0-47` |
+| `HourlyWeatherCode` | Weather code as number | Number | `HourOffset=0-47` |
+| `HourlyWeatherCodeText` | Weather code as text | String | `HourOffset=0-47` |
 
 #### Special Data Types
 
@@ -201,6 +211,91 @@ Meter=String
 MeasureName=MeasureWindSpeed
 MeasureName2=MeasureWindDirection
 Text=Wind: %1 %2
+```
+
+### Day/Night Detection
+
+```ini
+[MeasureDayNight]
+Measure=Plugin
+Plugin=WeatherX.dll
+DataType=CurrentIsDay
+Latitude=#Latitude#
+Longitude=#Longitude#
+Units=#Units#
+UpdateInterval=#UpdateInterval#
+
+[MeasureDayNightText]
+Measure=Plugin
+Plugin=WeatherX.dll
+DataType=CurrentIsDayText
+Latitude=#Latitude#
+Longitude=#Longitude#
+Units=#Units#
+UpdateInterval=#UpdateInterval#
+
+[MeterDayNight]
+Meter=String
+MeasureName=MeasureDayNightText
+Text=Time: %1
+```
+
+### Weather Code Usage
+
+```ini
+[MeasureWeatherCode]
+Measure=Plugin
+Plugin=WeatherX.dll
+DataType=CurrentWeatherCode
+Latitude=#Latitude#
+Longitude=#Longitude#
+Units=#Units#
+UpdateInterval=#UpdateInterval#
+
+[MeasureWeatherCodeText]
+Measure=Plugin
+Plugin=WeatherX.dll
+DataType=CurrentWeatherCodeText
+Latitude=#Latitude#
+Longitude=#Longitude#
+Units=#Units#
+UpdateInterval=#UpdateInterval#
+
+[MeterWeatherCode]
+Meter=String
+MeasureName=MeasureWeatherCode
+MeasureName2=MeasureWeatherCodeText
+Text=Code: %1 (%2)
+```
+
+### Dynamic Theming Example
+
+```ini
+[MeasureDayNight]
+Measure=Plugin
+Plugin=WeatherX.dll
+DataType=CurrentIsDay
+Latitude=#Latitude#
+Longitude=#Longitude#
+Units=#Units#
+UpdateInterval=#UpdateInterval#
+
+[MeasureWeatherCode]
+Measure=Plugin
+Plugin=WeatherX.dll
+DataType=CurrentWeatherCode
+Latitude=#Latitude#
+Longitude=#Longitude#
+Units=#Units#
+UpdateInterval=#UpdateInterval#
+
+[MeterBackground]
+Meter=Image
+; Dynamic background based on day/night and weather
+ImageName=#@#Images\Weather\%1_%2.png
+MeasureName=MeasureDayNight
+MeasureName2=MeasureWeatherCode
+; This would use images like: 1_0.png (day_clear), 0_61.png (night_rain), etc.
 ```
 
 ## Parameters

@@ -44,6 +44,8 @@ internal class Measure
     private double currentSolarRadiation = 0.0;
     private double currentDirectRadiation = 0.0;
     private double currentDiffuseRadiation = 0.0;
+    private double currentIsDay = 0.0;
+    private double currentWeatherCode = 0.0;
 
     private double todayUvIndex = 0.0;
 
@@ -52,6 +54,7 @@ internal class Measure
     private double[] forecastApparentTempMax = new double[7];
     private double[] forecastApparentTempMin = new double[7];
     private string[] forecastConditions = new string[7];
+    private double[] forecastWeatherCode = new double[7];
     private double[] forecastWindSpeedMax = new double[7];
     private double[] forecastUvIndexMax = new double[7];
     private string[] forecastSunrise = new string[7];
@@ -101,6 +104,7 @@ internal class Measure
             forecastApparentTempMax[i] = 0.0;
             forecastApparentTempMin[i] = 0.0;
             forecastConditions[i] = "Unknown";
+            forecastWeatherCode[i] = 0.0;
             forecastWindSpeedMax[i] = 0.0;
             forecastUvIndexMax[i] = 0.0;
             forecastSunrise[i] = "";
@@ -275,7 +279,7 @@ internal class Measure
                $"longitude={longitude.ToString(CultureInfo.InvariantCulture)}&" +
 
                $"current=temperature_2m,relative_humidity_2m,weather_code,surface_pressure,wind_speed_10m," +
-               $"apparent_temperature,dew_point_2m,wind_direction_10m,wind_gusts_10m&" +
+               $"apparent_temperature,dew_point_2m,wind_direction_10m,wind_gusts_10m,is_day&" +
 
                $"hourly=temperature_2m,relative_humidity_2m,wind_speed_10m," +
                $"apparent_temperature,cloud_cover,visibility,weather_code," +
@@ -323,7 +327,10 @@ internal class Measure
         currentWindDirection = ParseHelper.ParseJsonValue(json, "\"current\"", "\"wind_direction_10m\"");
         currentWindGusts = ParseHelper.ParseJsonValue(json, "\"current\"", "\"wind_gusts_10m\"");
 
-        int weatherCode = (int)ParseHelper.ParseJsonValue(json, "\"current\"", "\"weather_code\"");
+        currentWeatherCode = ParseHelper.ParseJsonValue(json, "\"current\"", "\"weather_code\"");
+        currentIsDay = ParseHelper.ParseJsonValue(json, "\"current\"", "\"is_day\"");
+
+        int weatherCode = (int)currentWeatherCode;
         currentCondition = CommonHelper.GetWeatherDescription(weatherCode);
     }
 
@@ -363,12 +370,11 @@ internal class Measure
             ParseHelper.ParseStringArrayInSection(dailySection, "\"sunrise\"", forecastSunrise);
             ParseHelper.ParseStringArrayInSection(dailySection, "\"sunset\"", forecastSunset);
 
-            double[] weatherCodes = new double[7];
-            ParseHelper.ParseArrayValuesInSection(dailySection, "\"weather_code\"", weatherCodes);
+            ParseHelper.ParseArrayValuesInSection(dailySection, "\"weather_code\"", forecastWeatherCode);
 
             for (int i = 0; i < 7; i++)
             {
-                forecastConditions[i] = CommonHelper.GetWeatherDescription((int)weatherCodes[i]);
+                forecastConditions[i] = CommonHelper.GetWeatherDescription((int)forecastWeatherCode[i]);
             }
 
             if (forecastUvIndexMax.Length > 0)
@@ -449,6 +455,10 @@ internal class Measure
                 return currentWindGusts;
             case "currentuvindex":
                 return todayUvIndex;
+            case "currentisday":
+                return currentIsDay;
+            case "currentweathercode":
+                return currentWeatherCode;
 
             case "currentsolarradiation":
                 return currentSolarRadiation;
@@ -470,6 +480,8 @@ internal class Measure
                 return forecastDay < forecastWindSpeedMax.Length ? forecastWindSpeedMax[forecastDay] : 0.0;
             case "forecastuvindex":
                 return forecastDay < forecastUvIndexMax.Length ? forecastUvIndexMax[forecastDay] : 0.0;
+            case "forecastweathercode":
+                return forecastDay < forecastWeatherCode.Length ? forecastWeatherCode[forecastDay] : 0.0;
             case "forecastsunrise":
                 return forecastDay < forecastSunrise.Length ? CommonHelper.ConvertIso8601ToHour(forecastSunrise[forecastDay]) : 0.0;
             case "forecastsunset":
@@ -487,6 +499,8 @@ internal class Measure
                 return targetHour < hourlyCloudCover.Length ? hourlyCloudCover[targetHour] : 0.0;
             case "hourlyvisibility":
                 return targetHour < hourlyVisibility.Length ? hourlyVisibility[targetHour] : 0.0;
+            case "hourlyweathercode":
+                return targetHour < hourlyWeatherCode.Length ? hourlyWeatherCode[targetHour] : 0.0;
 
             case "hourlysolarradiation":
                 return targetHour < hourlySolarRadiation.Length ? hourlySolarRadiation[targetHour] : 0.0;
@@ -515,10 +529,18 @@ internal class Measure
         {
             case "currentcondition":
                 return currentCondition;
+            case "currentweathercodetext":
+                return currentWeatherCode.ToString("F0");
+            case "currentisdaytext":
+                return currentIsDay > 0 ? "Day" : "Night";
             case "forecastcondition":
                 return forecastDay < forecastConditions.Length ? forecastConditions[forecastDay] : "Unknown";
+            case "forecastweathercodetext":
+                return forecastDay < forecastWeatherCode.Length ? forecastWeatherCode[forecastDay].ToString("F0") : "0";
             case "hourlycondition":
                 return targetHour < hourlyWeatherCode.Length ? CommonHelper.GetWeatherDescription(hourlyWeatherCode[targetHour]) : "Unknown";
+            case "hourlyweathercodetext":
+                return targetHour < hourlyWeatherCode.Length ? hourlyWeatherCode[targetHour].ToString("F0") : "0";
             case "currentwinddirectiontext":
                 return CommonHelper.GetWindDirectionText(currentWindDirection);
             case "debugerror":
