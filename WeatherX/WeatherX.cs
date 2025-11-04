@@ -105,20 +105,20 @@ internal static class WeatherDataCache
 
 internal class Measure
 {
-    private double latitude, longitude;
-    private string dataType;
-    private int forecastDay;
-    private int hourOffset;
-    private int updateInterval;
-    private API api;
-    private string units;
-    private string timezone;
+    protected double latitude, longitude;
+    protected string dataType;
+    protected int forecastDay;
+    protected int hourOffset;
+    protected int updateInterval;
+    protected API api;
+    protected string units;
+    protected string timezone;
 
-    private static DateTime lastGlobalApiCall = DateTime.MinValue;
-    private static readonly object apiCallLock = new object();
-    private static volatile bool isUpdating = false;
-    private const int MIN_API_CALL_INTERVAL = 5;
-    private static int activeMeasures = 0;
+    protected static DateTime lastGlobalApiCall = DateTime.MinValue;
+    protected static readonly object apiCallLock = new object();
+    protected static volatile bool isUpdating = false;
+    protected const int MIN_API_CALL_INTERVAL = 5;
+    protected static int activeMeasures = 0;
 
     internal Measure()
     {
@@ -145,7 +145,11 @@ internal class Measure
         }
     }
 
-    internal void Reload(Rainmeter.API api, ref double maxValue)
+    internal virtual void Dispose()
+    {
+    }
+
+    internal virtual void Reload(Rainmeter.API api, ref double maxValue)
     {
         this.api = api;
 
@@ -194,7 +198,7 @@ internal class Measure
         api.Log(API.LogType.Debug, "WeatherX: Reload detected - forcing data refresh");
     }
 
-    internal double Update()
+    internal virtual double Update()
     {
         // Check if an update is needed based on updateInterval
         double timeSinceLastUpdate = DateTime.Now.Subtract(WeatherDataCache.lastUpdate).TotalSeconds;
@@ -449,7 +453,7 @@ internal class Measure
         }
     }
 
-    private double GetNumericValue()
+    protected double GetNumericValue()
     {
         int targetHour = CommonHelper.GetTargetHourIndex(hourOffset);
 
@@ -541,7 +545,7 @@ internal class Measure
         }
     }
 
-    internal string GetStringValue()
+    internal virtual string GetStringValue()
     {
         int targetHour = CommonHelper.GetTargetHourIndex(hourOffset);
 
@@ -609,7 +613,7 @@ internal class Measure
         }
     }
 
-    private string GetNextHoursSummary()
+    protected string GetNextHoursSummary()
     {
         var summary = new StringBuilder();
         int currentHour = DateTime.Now.Hour;
@@ -642,5 +646,154 @@ internal class Measure
         }
 
         return summary.ToString();
+    }
+}
+
+// Parent Measure - handles API calls and data fetching
+internal class ParentMeasure : Measure
+{
+    // Static list to track all parent measures
+    internal static System.Collections.Generic.List<ParentMeasure> ParentMeasures = new System.Collections.Generic.List<ParentMeasure>();
+
+    internal string Name;
+    internal IntPtr Skin;
+
+    internal ParentMeasure()
+    {
+        ParentMeasures.Add(this);
+    }
+
+    internal override void Dispose()
+    {
+        ParentMeasures.Remove(this);
+    }
+
+    internal override void Reload(Rainmeter.API api, ref double maxValue)
+    {
+        base.Reload(api, ref maxValue);
+
+        Name = api.GetMeasureName();
+        Skin = api.GetSkin();
+
+        api.Log(API.LogType.Debug, $"WeatherX Parent: '{Name}' initialized in skin {Skin}");
+    }
+
+    internal override double Update()
+    {
+        return base.Update();
+    }
+
+    internal override string GetStringValue()
+    {
+        return base.GetStringValue();
+    }
+
+    // Method for child measures to get values
+    internal double GetValue(string type, int day, int hour)
+    {
+        string oldDataType = dataType;
+        int oldForecastDay = forecastDay;
+        int oldHourOffset = hourOffset;
+
+        dataType = type;
+        forecastDay = day;
+        hourOffset = hour;
+
+        double result = GetNumericValue();
+
+        dataType = oldDataType;
+        forecastDay = oldForecastDay;
+        hourOffset = oldHourOffset;
+
+        return result;
+    }
+
+    internal string GetStringValueFor(string type, int day, int hour)
+    {
+        string oldDataType = dataType;
+        int oldForecastDay = forecastDay;
+        int oldHourOffset = hourOffset;
+
+        dataType = type;
+        forecastDay = day;
+        hourOffset = hour;
+
+        string result = base.GetStringValue();
+
+        dataType = oldDataType;
+        forecastDay = oldForecastDay;
+        hourOffset = oldHourOffset;
+
+        return result;
+    }
+}
+
+// Child Measure - retrieves data from parent
+internal class ChildMeasure : Measure
+{
+    private ParentMeasure parentMeasure = null;
+
+    internal override void Dispose()
+    {
+        base.Dispose();
+    }
+
+    internal override void Reload(Rainmeter.API api, ref double maxValue)
+    {
+        this.api = api;
+
+        string parentName = api.ReadString("ParentName", "");
+        IntPtr skin = api.GetSkin();
+
+        dataType = api.ReadString("DataType", "CurrentTemp");
+        forecastDay = api.ReadInt("ForecastDay", 0);
+        hourOffset = api.ReadInt("HourOffset", 0);
+
+        if (forecastDay < 0 || forecastDay > 6)
+        {
+            forecastDay = 0;
+        }
+
+        if (hourOffset < 0 || hourOffset > 47)
+        {
+            hourOffset = 0;
+        }
+
+        // Find parent using name AND skin handle
+        parentMeasure = null;
+        foreach (ParentMeasure parent in ParentMeasure.ParentMeasures)
+        {
+            if (parent.Skin.Equals(skin) && parent.Name.Equals(parentName))
+            {
+                parentMeasure = parent;
+                api.Log(API.LogType.Debug, $"WeatherX Child: Found parent '{parentName}' for DataType='{dataType}'");
+                break;
+            }
+        }
+
+        if (parentMeasure == null)
+        {
+            api.Log(API.LogType.Error, $"WeatherX Child: ParentName='{parentName}' not found");
+        }
+    }
+
+    internal override double Update()
+    {
+        if (parentMeasure != null)
+        {
+            return parentMeasure.GetValue(dataType, forecastDay, hourOffset);
+        }
+
+        return 0.0;
+    }
+
+    internal override string GetStringValue()
+    {
+        if (parentMeasure != null)
+        {
+            return parentMeasure.GetStringValueFor(dataType, forecastDay, hourOffset);
+        }
+
+        return "No Parent";
     }
 }

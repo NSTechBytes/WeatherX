@@ -9,12 +9,32 @@ public static class Plugin
     [DllExport]
     public static void Initialize(ref IntPtr data, IntPtr rm)
     {
-        data = GCHandle.ToIntPtr(GCHandle.Alloc(new Measure()));
+        Rainmeter.API api = new Rainmeter.API(rm);
+
+        string parentName = api.ReadString("ParentName", "");
+        Measure measure;
+
+        if (String.IsNullOrEmpty(parentName))
+        {
+            // This is a parent measure
+            measure = new ParentMeasure();
+            api.Log(API.LogType.Debug, "WeatherX: Initialized as Parent measure");
+        }
+        else
+        {
+            // This is a child measure
+            measure = new ChildMeasure();
+            api.Log(API.LogType.Debug, $"WeatherX: Initialized as Child measure with ParentName={parentName}");
+        }
+
+        data = GCHandle.ToIntPtr(GCHandle.Alloc(measure));
     }
 
     [DllExport]
     public static void Finalize(IntPtr data)
     {
+        Measure measure = (Measure)GCHandle.FromIntPtr(data).Target;
+        measure.Dispose();
         GCHandle.FromIntPtr(data).Free();
 
         if (StringBuffer != IntPtr.Zero)
