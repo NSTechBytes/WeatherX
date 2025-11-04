@@ -65,6 +65,19 @@ internal static class WeatherDataCache
     public static string lastError = "";
     public static string lastApiUrl = "";
 
+    // Reverse geocoding data from BigDataCloud API
+    public static string locationContinent = "";
+    public static string locationContinentCode = "";
+    public static string locationCountryName = "";
+    public static string locationCountryCode = "";
+    public static string locationPrincipalSubdivision = "";
+    public static string locationPrincipalSubdivisionCode = "";
+    public static string locationCity = "";
+    public static DateTime lastGeocodeUpdate = DateTime.MinValue;
+    public static double lastGeocodedLatitude = 0.0;
+    public static double lastGeocodedLongitude = 0.0;
+    public static bool hasGeocodedBefore = false;
+
     static WeatherDataCache()
     {
         InitializeArrays();
@@ -113,6 +126,8 @@ internal class Measure
     protected API api;
     protected string units;
     protected string timezone;
+    protected string language;
+    protected bool enableReverseGeocode;
 
     protected static DateTime lastGlobalApiCall = DateTime.MinValue;
     protected static readonly object apiCallLock = new object();
@@ -130,6 +145,8 @@ internal class Measure
         updateInterval = 600;
         units = "metric";
         timezone = "auto";
+        language = "en";
+        enableReverseGeocode = false;
 
         lock (apiCallLock)
         {
@@ -161,6 +178,8 @@ internal class Measure
         updateInterval = api.ReadInt("UpdateInterval", 600);
         units = api.ReadString("Units", "metric").ToLower();
         timezone = api.ReadString("Timezone", "auto");
+        language = api.ReadString("Language", "en").ToLower();
+        enableReverseGeocode = api.ReadInt("EnableReverseGeocode", 0) == 1;
 
         if (latitude < -90 || latitude > 90 || longitude < -180 || longitude > 180)
         {
@@ -194,6 +213,20 @@ internal class Measure
         {
             // Reset the last update time to trigger immediate update
             WeatherDataCache.lastUpdate = DateTime.MinValue;
+            
+            // Reset geocode cache if coordinates changed or on first load
+            if (enableReverseGeocode)
+            {
+                bool coordsChanged = !WeatherDataCache.hasGeocodedBefore ||
+                                    Math.Abs(WeatherDataCache.lastGeocodedLatitude - latitude) > 0.0001 ||
+                                    Math.Abs(WeatherDataCache.lastGeocodedLongitude - longitude) > 0.0001;
+                
+                if (coordsChanged)
+                {
+                    WeatherDataCache.lastGeocodeUpdate = DateTime.MinValue;
+                    api.Log(API.LogType.Debug, $"WeatherX: Coordinates changed - will refresh reverse geocode data");
+                }
+            }
         }
         api.Log(API.LogType.Debug, "WeatherX: Reload detected - forcing data refresh");
     }
@@ -224,6 +257,12 @@ internal class Measure
                         api?.Log(API.LogType.Debug,
                             $"WeatherX: Triggering update - Time since last: {timeSinceLastUpdate:F1}s, Interval: {updateInterval}s");
                         Task.Run(async () => await UpdateWeatherDataAsync());
+                        
+                        // Update reverse geocode if enabled and not updated yet
+                        if (enableReverseGeocode && WeatherDataCache.lastGeocodeUpdate == DateTime.MinValue)
+                        {
+                            Task.Run(async () => await UpdateReverseGeocodeAsync());
+                        }
                     }
                     else
                     {
@@ -274,7 +313,7 @@ internal class Measure
                 WeatherDataCache.lastUpdate = DateTime.Now;
 
                 api?.Log(API.LogType.Debug,
-                    $"WeatherX: ✓ Data updated successfully at {WeatherDataCache.lastUpdate:HH:mm:ss} | Next update in {updateInterval}s");
+                    $"WeatherX:  Data updated successfully at {WeatherDataCache.lastUpdate:HH:mm:ss} | Next update in {updateInterval}s");
             }
         }
         catch (WebException wex)
@@ -299,6 +338,71 @@ internal class Measure
         finally
         {
             isUpdating = false;
+        }
+    }
+
+    private async Task UpdateReverseGeocodeAsync()
+    {
+        try
+        {
+            string geocodeUrl = $"https://api.bigdatacloud.net/data/reverse-geocode-client?" +
+                               $"latitude={latitude.ToString(CultureInfo.InvariantCulture)}&" +
+                               $"longitude={longitude.ToString(CultureInfo.InvariantCulture)}&" +
+                               $"localityLanguage={language}";
+
+            api?.Log(API.LogType.Debug, $"WeatherX: Fetching reverse geocode from: {geocodeUrl}");
+
+            using (TimeoutWebClient client = new TimeoutWebClient())
+            {
+                client.Headers.Add("User-Agent", "WeatherX-Rainmeter-Plugin/1.0");
+                client.Headers.Add("Accept", "application/json");
+                client.Encoding = Encoding.UTF8;
+                client.Timeout = 10000;
+
+                string response = await client.DownloadStringTaskAsync(geocodeUrl);
+                ParseReverseGeocodeData(response);
+
+                // Store the coordinates we just geocoded
+                WeatherDataCache.lastGeocodedLatitude = latitude;
+                WeatherDataCache.lastGeocodedLongitude = longitude;
+                WeatherDataCache.hasGeocodedBefore = true;
+                WeatherDataCache.lastGeocodeUpdate = DateTime.Now;
+                api?.Log(API.LogType.Debug, 
+                    $"WeatherX: Reverse geocode updated - City: {WeatherDataCache.locationCity}, Country: {WeatherDataCache.locationCountryName}");
+            }
+        }
+        catch (Exception ex)
+        {
+            api?.Log(API.LogType.Error, $"WeatherX: Reverse geocode error: {ex.Message}");
+        }
+    }
+
+    private void ParseReverseGeocodeData(string jsonResponse)
+    {
+        try
+        {
+            // Parse continent
+            WeatherDataCache.locationContinent = ParseHelper.ParseJsonStringValue(jsonResponse, "continent");
+            WeatherDataCache.locationContinentCode = ParseHelper.ParseJsonStringValue(jsonResponse, "continentCode");
+            
+            // Parse country
+            WeatherDataCache.locationCountryName = ParseHelper.ParseJsonStringValue(jsonResponse, "countryName");
+            WeatherDataCache.locationCountryCode = ParseHelper.ParseJsonStringValue(jsonResponse, "countryCode");
+            
+            // Parse subdivision (state/province)
+            WeatherDataCache.locationPrincipalSubdivision = ParseHelper.ParseJsonStringValue(jsonResponse, "principalSubdivision");
+            WeatherDataCache.locationPrincipalSubdivisionCode = ParseHelper.ParseJsonStringValue(jsonResponse, "principalSubdivisionCode");
+            
+            // Parse city
+            WeatherDataCache.locationCity = ParseHelper.ParseJsonStringValue(jsonResponse, "city");
+
+            api?.Log(API.LogType.Debug, 
+                $"WeatherX: Parsed location - {WeatherDataCache.locationCity}, {WeatherDataCache.locationPrincipalSubdivision}, {WeatherDataCache.locationCountryName}");
+        }
+        catch (Exception ex)
+        {
+            api?.Log(API.LogType.Error, $"WeatherX: Reverse geocode parsing error: {ex.Message}");
+            throw;
         }
     }
 
@@ -607,6 +711,27 @@ internal class Measure
             case "debugcloudcover":
                 return $"Current Clouds: {WeatherDataCache.currentCloudCover:F0}% | Next hour: {(targetHour < WeatherDataCache.hourlyCloudCover.Length ? WeatherDataCache.hourlyCloudCover[targetHour].ToString("F0") + "%" : "N/A")}";
 
+            // Reverse geocoding data types
+            case "locationcontinent":
+                return WeatherDataCache.locationContinent;
+            case "locationcontinentcode":
+                return WeatherDataCache.locationContinentCode;
+            case "locationcountryname":
+            case "locationcountry":
+                return WeatherDataCache.locationCountryName;
+            case "locationcountrycode":
+                return WeatherDataCache.locationCountryCode;
+            case "locationprincipalsubdivision":
+            case "locationstate":
+                return WeatherDataCache.locationPrincipalSubdivision;
+            case "locationprincipalsubdivisioncode":
+            case "locationstatecode":
+                return WeatherDataCache.locationPrincipalSubdivisionCode;
+            case "locationcity":
+                return WeatherDataCache.locationCity;
+            case "locationfull":
+                return BuildFullLocationString();
+
             default:
                 double value = GetNumericValue();
                 return value.ToString("F1", CultureInfo.InvariantCulture);
@@ -646,6 +771,22 @@ internal class Measure
         }
 
         return summary.ToString();
+    }
+
+    private string BuildFullLocationString()
+    {
+        var parts = new System.Collections.Generic.List<string>();
+        
+        if (!string.IsNullOrEmpty(WeatherDataCache.locationCity))
+            parts.Add(WeatherDataCache.locationCity);
+        
+        if (!string.IsNullOrEmpty(WeatherDataCache.locationPrincipalSubdivision))
+            parts.Add(WeatherDataCache.locationPrincipalSubdivision);
+        
+        if (!string.IsNullOrEmpty(WeatherDataCache.locationCountryName))
+            parts.Add(WeatherDataCache.locationCountryName);
+        
+        return parts.Count > 0 ? string.Join(", ", parts) : "Unknown Location";
     }
 }
 
