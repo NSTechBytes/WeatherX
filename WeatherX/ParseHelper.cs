@@ -44,6 +44,60 @@ public static class ParseHelper
         }
     }
 
+    public static string ParseJsonStringValue(string json, string key)
+    {
+        try
+        {
+            // Find the key in the JSON
+            string searchKey = $"\"{key}\"";
+            int keyStart = json.IndexOf(searchKey);
+            if (keyStart == -1) return "";
+
+            // Find the colon after the key
+            int colonPos = json.IndexOf(":", keyStart);
+            if (colonPos == -1) return "";
+
+            // Find the start of the value (skip whitespace)
+            int valueStart = colonPos + 1;
+            while (valueStart < json.Length && char.IsWhiteSpace(json[valueStart]))
+            {
+                valueStart++;
+            }
+
+            // Check if the value is a string (starts with quote)
+            if (valueStart >= json.Length || json[valueStart] != '"')
+                return "";
+
+            // Find the end quote (handle escaped quotes)
+            int valueEnd = valueStart + 1;
+            while (valueEnd < json.Length)
+            {
+                if (json[valueEnd] == '"' && json[valueEnd - 1] != '\\')
+                {
+                    break;
+                }
+                valueEnd++;
+            }
+
+            if (valueEnd >= json.Length) return "";
+
+            // Extract the string value (without quotes)
+            string value = json.Substring(valueStart + 1, valueEnd - valueStart - 1);
+            
+            // Handle null or empty values
+            if (string.IsNullOrEmpty(value) || value.Equals("null", StringComparison.OrdinalIgnoreCase))
+            {
+                return "";
+            }
+
+            return value;
+        }
+        catch
+        {
+            return "";
+        }
+    }
+
     public static string ExtractHourlySection(string json, int hourlyStart)
     {
         int braceStart = json.IndexOf("{", hourlyStart);

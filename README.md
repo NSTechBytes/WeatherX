@@ -1,433 +1,477 @@
 # WeatherX Plugin for Rainmeter
+
 [![License: MIT](https://img.shields.io/badge/License-MIT-lightgrey.svg)]()
-[![Version](https://img.shields.io/badge/version-1.0.1-blue.svg)]()
+[![Version](https://img.shields.io/badge/version-1.1.0-blue.svg)]()
 [![Platform](https://img.shields.io/badge/platform-Windows-lightblue.svg)]()
 
-A comprehensive weather plugin for Rainmeter that provides current weather conditions, forecasts, and detailed meteorological data using the Open-Meteo API.
+A powerful Rainmeter plugin that provides real-time weather data, 7-day forecasts, hourly predictions, and location information using the free Open-Meteo API.
 
-## Preview
+## ✨ Features
 
-![WeatherX Skin Preview](https://github.com/NSTechBytes/WeatherX/blob/main/.github/preview.png)
+- 🌡️ **Current Weather** - Temperature, humidity, wind, pressure, UV index
+- 📅 **7-Day Forecast** - Daily high/low temperatures and conditions
+- ⏰ **48-Hour Forecast** - Detailed hourly predictions
+- 🌍 **Reverse Geocoding** - Automatic city/state/country detection
+- ☀️ **Solar Data** - Radiation, sunrise/sunset times
+- 🌙 **Day/Night Detection** - Perfect for dynamic themes
+- 📊 **Multiple Units** - Metric or Imperial
+- 🚀 **No API Key Required** - Free and unlimited
 
-## Features
+## 📦 Installation
 
-- **Real-time Weather Data**: Current temperature, humidity, wind conditions, and more
-- **7-Day Forecasts**: Daily temperature ranges and weather conditions
-- **48-Hour Forecasts**: Detailed hourly weather predictions
-- **Solar Radiation Data**: UV index, solar radiation, direct and diffuse radiation
-- **Comprehensive Metrics**: Apparent temperature, dew point, visibility, cloud cover
-- **Day/Night Detection**: Automatic day/night status for dynamic theming
-- **Numeric Weather Codes**: Both descriptive text and numeric codes for weather conditions
-- **Multiple Units**: Support for metric and imperial units
-- **Automatic Updates**: Configurable update intervals
-- **Error Handling**: Built-in debugging and status reporting
+### Quick Install (Recommended)
+1. Download `WeatherX_v*.rmskin` from [Releases](https://github.com/NSTechBytes/WeatherX/releases)
+2. Double-click to install
+3. Update your coordinates in the skin
+4. Done! 🎉
 
-## Installation
+### Manual Install
+1. Download the plugin ZIP from [Releases](https://github.com/NSTechBytes/WeatherX/releases)
+2. Copy `WeatherX.dll` to `%AppData%\Rainmeter\Plugins\`
+   - Use `x64` folder for 64-bit or `x32` for 32-bit
+3. Refresh Rainmeter
 
-### Option 1: RMSKIN Package (Recommended)
-1. Download the latest `WeatherX_v*.rmskin` file from [Releases](https://github.com/NSTechBytes/WeatherX/releases)
-2. Double-click the `.rmskin` file to automatically install in Rainmeter
-3. Load the WeatherX skin from Rainmeter's skin browser
-4. Configure your coordinates in the skin variables
+## 🚀 Quick Start Guide
 
-### Option 2: Manual Installation
-1. Download the plugin ZIP file from [Releases](https://github.com/NSTechBytes/WeatherX/releases)
-2. Extract the appropriate DLL file (`x64` or `x32`) to your Rainmeter plugins folder
-3. Place the skin files in your Rainmeter skins directory
-4. Configure your coordinates and refresh Rainmeter
+### Step 1: Basic Setup
 
-## Configuration
-
-### Required Variables
+Create a parent measure that handles all weather data:
 
 ```ini
+[Rainmeter]
+Update=1000
+
 [Variables]
-Latitude=29.696489    ; Your location's latitude
-Longitude=72.549843   ; Your location's longitude
-Units=metric          ; "metric" or "imperial"
-UpdateInterval=300    ; Update frequency in seconds
-```
+Latitude=40.7128          ; New York coordinates
+Longitude=-74.0060
+Units=metric              ; "metric" or "imperial"
+UpdateInterval=600        ; Update every 10 minutes
 
-## Measure Options
-
-### DataType Options
-
-The plugin supports numerous `DataType` options for different weather measurements:
-
-#### Current Weather Data
-
-| DataType | Description | Return Type | Units (Metric/Imperial) |
-|----------|-------------|-------------|-------------------------|
-| `CurrentTemp` | Current temperature | Number | °C / °F |
-| `CurrentCondition` | Current weather description | String | Text description |
-| `CurrentHumidity` | Relative humidity | Number | % |
-| `CurrentWindSpeed` | Wind speed | Number | km/h / mph |
-| `CurrentWindDirection` | Wind direction in degrees | Number | 0-360° |
-| `CurrentWindDirectionText` | Wind direction as text | String | N, NE, E, etc. |
-| `CurrentPressure` | Atmospheric pressure | Number | hPa |
-| `CurrentApparentTemp` | Feels-like temperature | Number | °C / °F |
-| `CurrentDewPoint` | Dew point temperature | Number | °C / °F |
-| `CurrentCloudCover` | Cloud coverage percentage | Number | % |
-| `CurrentWindGusts` | Wind gust speed | Number | km/h / mph |
-| `CurrentUvIndex` | UV index value | Number | 0-11+ |
-| `CurrentSolarRadiation` | Solar radiation | Number | W/m² |
-| `CurrentDirectRadiation` | Direct solar radiation | Number | W/m² |
-| `CurrentDiffuseRadiation` | Diffuse solar radiation | Number | W/m² |
-| `CurrentIsDay` | Day/night status | Number | 1.0 = Day, 0.0 = Night |
-| `CurrentIsDayText` | Day/night status as text | String | "Day" or "Night" |
-| `CurrentWeatherCode` | Weather code as number | Number | 0, 1, 2, 45, 61, etc. |
-| `CurrentWeatherCodeText` | Weather code as text | String | "0", "1", "2", "45", "61", etc. |
-
-#### Daily Forecast Data
-
-| DataType | Description | Return Type | Additional Parameter |
-|----------|-------------|-------------|----------------------|
-| `ForecastTempMax` | Daily maximum temperature | Number | `ForecastDay=0-6` |
-| `ForecastTempMin` | Daily minimum temperature | Number | `ForecastDay=0-6` |
-| `ForecastCondition` | Daily weather condition | String | `ForecastDay=0-6` |
-| `ForecastApparentTempMax` | Daily max apparent temperature | Number | `ForecastDay=0-6` |
-| `ForecastApparentTempMin` | Daily min apparent temperature | Number | `ForecastDay=0-6` |
-| `ForecastWindSpeed` | Daily max wind speed | Number | `ForecastDay=0-6` |
-| `ForecastUvIndex` | Daily max UV index | Number | `ForecastDay=0-6` |
-| `ForecastSunrise` | Sunrise time (hour value) | Number | `ForecastDay=0-6` |
-| `ForecastSunset` | Sunset time (hour value) | Number | `ForecastDay=0-6` |
-| `ForecastSunriseText` | Sunrise time as text | String | `ForecastDay=0-6` |
-| `ForecastSunsetText` | Sunset time as text | String | `ForecastDay=0-6` |
-| `ForecastWeatherCode` | Weather code as number | Number | `ForecastDay=0-6` |
-| `ForecastWeatherCodeText` | Weather code as text | String | `ForecastDay=0-6` |
-
-#### Hourly Forecast Data
-
-| DataType | Description | Return Type | Additional Parameter |
-|----------|-------------|-------------|----------------------|
-| `HourlyTemp` | Hourly temperature | Number | `HourOffset=0-47` |
-| `HourlyCondition` | Hourly weather condition | String | `HourOffset=0-47` |
-| `HourlyHumidity` | Hourly humidity | Number | `HourOffset=0-47` |
-| `HourlyWindSpeed` | Hourly wind speed | Number | `HourOffset=0-47` |
-| `HourlyApparentTemp` | Hourly apparent temperature | Number | `HourOffset=0-47` |
-| `HourlyCloudCover` | Hourly cloud coverage | Number | `HourOffset=0-47` |
-| `HourlyVisibility` | Hourly visibility | Number | `HourOffset=0-47` |
-| `HourlySolarRadiation` | Hourly solar radiation | Number | `HourOffset=0-47` |
-| `HourlyDirectRadiation` | Hourly direct radiation | Number | `HourOffset=0-47` |
-| `HourlyDiffuseRadiation` | Hourly diffuse radiation | Number | `HourOffset=0-47` |
-| `HourlyTime` | Hourly timestamp | String | `HourOffset=0-47` |
-| `HourlyWeatherCode` | Weather code as number | Number | `HourOffset=0-47` |
-| `HourlyWeatherCodeText` | Weather code as text | String | `HourOffset=0-47` |
-
-#### Special Data Types
-
-| DataType | Description | Return Type | Purpose |
-|----------|-------------|-------------|---------|
-| `UvIndexText` | UV index description | String | "Low", "Moderate", "High", etc. |
-| `NextHoursSummary` | Summary of next 6 hours | String | Quick forecast overview |
-| `Status` | Plugin status | String | "Ready", "Updating...", "Error" |
-| `DebugError` | Last error message | String | Troubleshooting |
-| `DebugUrl` | API URL being used | String | Debugging |
-| `DebugSolarRadiation` | Solar radiation debug info | String | Detailed solar data |
-| `DebugCloudCover` | Cloud cover debug info | String | Cloud coverage details |
-
-## Usage Examples
-
-### Basic Temperature Display
-
-```ini
-[MeasureCurrentTemp]
+[mWeatherParent]
 Measure=Plugin
 Plugin=WeatherX.dll
-DataType=CurrentTemp
 Latitude=#Latitude#
 Longitude=#Longitude#
 Units=#Units#
 UpdateInterval=#UpdateInterval#
+DataType=CurrentTemp
+```
+
+### Step 2: Add Child Measures
+
+Use child measures to get specific weather data:
+
+```ini
+[mTemperature]
+Measure=Plugin
+Plugin=WeatherX.dll
+ParentName=mWeatherParent
+DataType=CurrentTemp
+
+[mCondition]
+Measure=Plugin
+Plugin=WeatherX.dll
+ParentName=mWeatherParent
+DataType=CurrentCondition
+
+[mHumidity]
+Measure=Plugin
+Plugin=WeatherX.dll
+ParentName=mWeatherParent
+DataType=CurrentHumidity
+```
+
+### Step 3: Display the Data
+
+```ini
+[MeterWeather]
+Meter=String
+MeasureName=mTemperature
+MeasureName2=mCondition
+MeasureName3=mHumidity
+X=10
+Y=10
+FontSize=12
+FontColor=255,255,255
+Text="Temp: %1°#CRLF#Condition: %2#CRLF#Humidity: %3%"
+```
+
+### How to Get Your Coordinates
+
+1. Go to [Google Maps](https://maps.google.com)
+2. Right-click your location
+3. Click the coordinates to copy them
+4. Paste into your `Latitude` and `Longitude` variables
+
+## 📊 Available Data Types
+
+### Current Weather
+
+| DataType | Description | Example Value |
+|----------|-------------|---------------|
+| `CurrentTemp` | Current temperature | 22.5 |
+| `CurrentCondition` | Weather description | "Clear Sky" |
+| `CurrentHumidity` | Relative humidity | 65 |
+| `CurrentWindSpeed` | Wind speed | 15.2 |
+| `CurrentWindDirection` | Wind direction degrees | 180 |
+| `CurrentWindDirectionText` | Wind direction | "S" |
+| `CurrentPressure` | Atmospheric pressure | 1013.2 |
+| `CurrentApparentTemp` | Feels-like temperature | 24.1 |
+| `CurrentDewPoint` | Dew point | 16.3 |
+| `CurrentCloudCover` | Cloud coverage % | 25 |
+| `CurrentWindGusts` | Wind gusts speed | 22.5 |
+| `CurrentUvIndex` | UV index | 5.2 |
+| `CurrentIsDay` | Day=1, Night=0 | 1.0 |
+| `CurrentIsDayText` | Day/Night as text | "Day" |
+| `CurrentWeatherCode` | Weather code number | 0 |
+| `CurrentWeatherCodeText` | Weather code as text | "0" |
+| `CurrentSolarRadiation` | Solar radiation W/m² | 450.5 |
+
+### Daily Forecast (0-6 days)
+
+Add `ForecastDay=0` (today) to `ForecastDay=6` (6 days ahead)
+
+| DataType | Description |
+|----------|-------------|
+| `ForecastTempMax` | Daily maximum temperature |
+| `ForecastTempMin` | Daily minimum temperature |
+| `ForecastCondition` | Daily weather condition |
+| `ForecastApparentTempMax` | Max feels-like temperature |
+| `ForecastApparentTempMin` | Min feels-like temperature |
+| `ForecastWindSpeed` | Max wind speed |
+| `ForecastUvIndex` | Max UV index |
+| `ForecastSunrise` | Sunrise hour (numeric) |
+| `ForecastSunset` | Sunset hour (numeric) |
+| `ForecastSunriseText` | Sunrise time "HH:mm" |
+| `ForecastSunsetText` | Sunset time "HH:mm" |
+| `ForecastWeatherCode` | Weather code number |
+| `ForecastWeatherCodeText` | Weather code as text |
+
+**Example:**
+```ini
+[mTomorrowMax]
+Measure=Plugin
+Plugin=WeatherX.dll
+ParentName=mWeatherParent
+DataType=ForecastTempMax
+ForecastDay=1
+```
+
+### Hourly Forecast (0-47 hours)
+
+Add `HourOffset=0` (current hour) to `HourOffset=47` (47 hours ahead)
+
+| DataType | Description |
+|----------|-------------|
+| `HourlyTemp` | Hourly temperature |
+| `HourlyCondition` | Hourly weather condition |
+| `HourlyHumidity` | Hourly humidity |
+| `HourlyWindSpeed` | Hourly wind speed |
+| `HourlyApparentTemp` | Hourly feels-like temp |
+| `HourlyCloudCover` | Hourly cloud coverage |
+| `HourlyVisibility` | Hourly visibility |
+| `HourlyWeatherCode` | Weather code number |
+| `HourlyWeatherCodeText` | Weather code as text |
+| `HourlyTime` | Hour timestamp |
+| `HourlySolarRadiation` | Solar radiation W/m² |
+
+**Example:**
+```ini
+[mNext3Hours]
+Measure=Plugin
+Plugin=WeatherX.dll
+ParentName=mWeatherParent
+DataType=HourlyTemp
+HourOffset=3
+```
+
+### Location Data (Reverse Geocoding)
+
+Enable with `EnableReverseGeocode=1` in parent measure:
+
+| DataType | Description | Example |
+|----------|-------------|----------|
+| `LocationCity` | City name | "New York" |
+| `LocationState` | State/Province | "New York" |
+| `LocationStateCode` | State code | "NY" |
+| `LocationCountry` | Country name | "United States" |
+| `LocationCountryCode` | Country code | "US" |
+| `LocationContinent` | Continent name | "North America" |
+| `LocationContinentCode` | Continent code | "NA" |
+| `LocationFull` | Full location string | "New York, NY, United States" |
+
+**Example:**
+```ini
+[mWeatherParent]
+Measure=Plugin
+Plugin=WeatherX.dll
+Latitude=#Latitude#
+Longitude=#Longitude#
+EnableReverseGeocode=1
+DataType=CurrentTemp
+
+[mCity]
+Measure=Plugin
+Plugin=WeatherX.dll
+ParentName=mWeatherParent
+DataType=LocationCity
+```
+
+### Special Data Types
+
+| DataType | Description |
+|----------|-------------|
+| `UvIndexText` | UV description: "Low", "Moderate", "High", etc. |
+| `NextHoursSummary` | Summary of next 6 hours |
+| `Status` | Plugin status: "Ready", "Updating...", "Error" |
+| `DebugError` | Last error message |
+| `DebugUrl` | API URL being used |
+| `DebugLastUpdate` | Last update time |
+| `DebugNextUpdate` | Time until next update |
+
+
+## 🌦️ Weather Codes Reference
+
+| Code | Description |
+|------|-------------|
+| 0 | Clear Sky |
+| 1 | Mainly Clear |
+| 2 | Partly Cloudy |
+| 3 | Overcast |
+| 45 | Fog |
+| 48 | Depositing Rime Fog |
+| 51 | Light Drizzle |
+| 53 | Moderate Drizzle |
+| 55 | Dense Drizzle |
+| 61 | Slight Rain |
+| 63 | Moderate Rain |
+| 65 | Heavy Rain |
+| 71 | Slight Snow |
+| 73 | Moderate Snow |
+| 75 | Heavy Snow |
+| 80 | Slight Rain Showers |
+| 81 | Moderate Rain Showers |
+| 82 | Violent Rain Showers |
+| 95 | Thunderstorm |
+| 96 | Thunderstorm with Hail |
+
+## 🚀 Advanced Examples
+
+### Complete Weather Widget
+
+```ini
+[Rainmeter]
+Update=1000
+
+[Variables]
+Latitude=40.7128
+Longitude=-74.0060
+Units=imperial
+UpdateInterval=600
+
+; Parent measure
+[mWeatherParent]
+Measure=Plugin
+Plugin=WeatherX.dll
+Latitude=#Latitude#
+Longitude=#Longitude#
+Units=#Units#
+UpdateInterval=#UpdateInterval#
+EnableReverseGeocode=1
+DataType=CurrentTemp
+
+; Current weather
+[mTemp]
+Measure=Plugin
+Plugin=WeatherX.dll
+ParentName=mWeatherParent
+DataType=CurrentTemp
+
+[mCondition]
+Measure=Plugin
+Plugin=WeatherX.dll
+ParentName=mWeatherParent
+DataType=CurrentCondition
+
+[mHumidity]
+Measure=Plugin
+Plugin=WeatherX.dll
+ParentName=mWeatherParent
+DataType=CurrentHumidity
+
+[mWindSpeed]
+Measure=Plugin
+Plugin=WeatherX.dll
+ParentName=mWeatherParent
+DataType=CurrentWindSpeed
+
+[mWindDir]
+Measure=Plugin
+Plugin=WeatherX.dll
+ParentName=mWeatherParent
+DataType=CurrentWindDirectionText
+
+; Location
+[mCity]
+Measure=Plugin
+Plugin=WeatherX.dll
+ParentName=mWeatherParent
+DataType=LocationCity
+
+; Display meters
+[MeterLocation]
+Meter=String
+MeasureName=mCity
+X=10
+Y=10
+FontSize=14
+FontWeight=700
+FontColor=255,255,255
+Text="%1"
 
 [MeterTemp]
 Meter=String
-MeasureName=MeasureCurrentTemp
-Text=%1°
-FontSize=24
+MeasureName=mTemp
+X=10
+Y=35
+FontSize=48
+FontColor=255,255,255
+Text="%1°"
+
+[MeterCondition]
+Meter=String
+MeasureName=mCondition
+X=10
+Y=90
+FontSize=16
+FontColor=200,200,200
+Text="%1"
+
+[MeterDetails]
+Meter=String
+MeasureName=mHumidity
+MeasureName2=mWindSpeed
+MeasureName3=mWindDir
+X=10
+Y=115
+FontSize=12
+FontColor=180,180,180
+Text="Humidity: %1% | Wind: %2 %3"
 ```
 
-### Daily Forecast
+### 7-Day Forecast
 
 ```ini
-[MeasureTomorrowMax]
+; Tomorrow's forecast
+[mTomorrowHigh]
 Measure=Plugin
 Plugin=WeatherX.dll
+ParentName=mWeatherParent
 DataType=ForecastTempMax
 ForecastDay=1
-Latitude=#Latitude#
-Longitude=#Longitude#
-Units=#Units#
-UpdateInterval=#UpdateInterval#
 
-[MeasureTomorrowMin]
+[mTomorrowLow]
 Measure=Plugin
 Plugin=WeatherX.dll
+ParentName=mWeatherParent
 DataType=ForecastTempMin
 ForecastDay=1
-Latitude=#Latitude#
-Longitude=#Longitude#
-Units=#Units#
-UpdateInterval=#UpdateInterval#
-```
 
-### Hourly Forecast
-
-```ini
-[MeasureNext3Hours]
+[mTomorrowCondition]
 Measure=Plugin
 Plugin=WeatherX.dll
-DataType=HourlyTemp
-HourOffset=3
-Latitude=#Latitude#
-Longitude=#Longitude#
-Units=#Units#
-UpdateInterval=#UpdateInterval#
-```
+ParentName=mWeatherParent
+DataType=ForecastCondition
+ForecastDay=1
 
-### Wind Information
-
-```ini
-[MeasureWindSpeed]
-Measure=Plugin
-Plugin=WeatherX.dll
-DataType=CurrentWindSpeed
-Latitude=#Latitude#
-Longitude=#Longitude#
-Units=#Units#
-UpdateInterval=#UpdateInterval#
-
-[MeasureWindDirection]
-Measure=Plugin
-Plugin=WeatherX.dll
-DataType=CurrentWindDirectionText
-Latitude=#Latitude#
-Longitude=#Longitude#
-Units=#Units#
-UpdateInterval=#UpdateInterval#
-
-[MeterWind]
+[MeterTomorrow]
 Meter=String
-MeasureName=MeasureWindSpeed
-MeasureName2=MeasureWindDirection
-Text=Wind: %1 %2
+MeasureName=mTomorrowHigh
+MeasureName2=mTomorrowLow
+MeasureName3=mTomorrowCondition
+X=10
+Y=150
+FontSize=11
+Text="Tomorrow: %1°/%2° - %3"
 ```
 
-### Day/Night Detection
+### Dynamic Day/Night Backgrounds
 
 ```ini
-[MeasureDayNight]
+[mIsDay]
 Measure=Plugin
 Plugin=WeatherX.dll
+ParentName=mWeatherParent
 DataType=CurrentIsDay
-Latitude=#Latitude#
-Longitude=#Longitude#
-Units=#Units#
-UpdateInterval=#UpdateInterval#
 
-[MeasureDayNightText]
+[mWeatherCode]
 Measure=Plugin
 Plugin=WeatherX.dll
-DataType=CurrentIsDayText
-Latitude=#Latitude#
-Longitude=#Longitude#
-Units=#Units#
-UpdateInterval=#UpdateInterval#
-
-[MeterDayNight]
-Meter=String
-MeasureName=MeasureDayNightText
-Text=Time: %1
-```
-
-### Weather Code Usage
-
-```ini
-[MeasureWeatherCode]
-Measure=Plugin
-Plugin=WeatherX.dll
+ParentName=mWeatherParent
 DataType=CurrentWeatherCode
-Latitude=#Latitude#
-Longitude=#Longitude#
-Units=#Units#
-UpdateInterval=#UpdateInterval#
 
-[MeasureWeatherCodeText]
-Measure=Plugin
-Plugin=WeatherX.dll
-DataType=CurrentWeatherCodeText
-Latitude=#Latitude#
-Longitude=#Longitude#
-Units=#Units#
-UpdateInterval=#UpdateInterval#
-
-[MeterWeatherCode]
-Meter=String
-MeasureName=MeasureWeatherCode
-MeasureName2=MeasureWeatherCodeText
-Text=Code: %1 (%2)
-```
-
-### Dynamic Theming Example
-
-```ini
-[MeasureDayNight]
-Measure=Plugin
-Plugin=WeatherX.dll
-DataType=CurrentIsDay
-Latitude=#Latitude#
-Longitude=#Longitude#
-Units=#Units#
-UpdateInterval=#UpdateInterval#
-
-[MeasureWeatherCode]
-Measure=Plugin
-Plugin=WeatherX.dll
-DataType=CurrentWeatherCode
-Latitude=#Latitude#
-Longitude=#Longitude#
-Units=#Units#
-UpdateInterval=#UpdateInterval#
-
-[MeterBackground]
+[MeterBG]
 Meter=Image
-; Dynamic background based on day/night and weather
-ImageName=#@#Images\Weather\%1_%2.png
-MeasureName=MeasureDayNight
-MeasureName2=MeasureWeatherCode
-; This would use images like: 1_0.png (day_clear), 0_61.png (night_rain), etc.
+; Use different images based on time and weather
+; Image naming: day_0.jpg (day, clear), night_61.jpg (night, rain)
+ImageName=#@#Backgrounds\[mIsDay]_[mWeatherCode].jpg
+W=400
+H=300
 ```
 
-## Parameters
+## 🔧 Troubleshooting
 
-### Required Parameters
+### Plugin Not Loading
+- Ensure you're using the correct DLL version (x64 vs x32)
+- Check Rainmeter log for error messages
+- Verify .NET Framework 4.8 is installed
 
-- **`Latitude`**: Your location's latitude (-90 to 90)
-- **`Longitude`**: Your location's longitude (-180 to 180)
-- **`DataType`**: The type of weather data to retrieve (see table above)
+### No Data Showing
+- Check your coordinates are correct (use Google Maps)
+- Verify internet connection
+- Check `DebugError` DataType for error messages
+- Ensure `UpdateInterval` is not too short (minimum 60 seconds recommended)
 
-### Optional Parameters
+### Location Not Updating
+- Make sure `EnableReverseGeocode=1` is set in parent measure
+- Location updates when coordinates change
+- Check Rainmeter log for geocoding errors
 
-- **`Units`**: Unit system ("metric" or "imperial", default: "metric")
-- **`UpdateInterval`**: Update frequency in seconds (default: 600)
-- **`ForecastDay`**: Day offset for forecast data (0-6, default: 0)
-- **`HourOffset`**: Hour offset for hourly data (0-47, default: 0)
-- **`Timezone`**: Timezone identifier (default: "auto")
+### Debug Example
 
-## Data Source
+```ini
+[mDebugStatus]
+Measure=Plugin
+Plugin=WeatherX.dll
+ParentName=mWeatherParent
+DataType=Status
 
-This plugin uses the [Open-Meteo API](https://open-meteo.com/), which provides:
-- Free weather data
-- No API key required
-- Global coverage
-- High accuracy
-- Multiple forecast models
+[mDebugError]
+Measure=Plugin
+Plugin=WeatherX.dll
+ParentName=mWeatherParent
+DataType=DebugError
 
-## Error Handling
+[MeterDebug]
+Meter=String
+MeasureName=mDebugStatus
+MeasureName2=mDebugError
+Text="Status: %1#CRLF#Error: %2"
+```
+## 📝 License
 
-The plugin includes comprehensive error handling:
-- Network timeout protection
-- HTTPS/HTTP fallback
-- Invalid coordinate detection
-- JSON parsing error recovery
-- Status reporting via `Status` DataType
+MIT License - Free to use and modify
 
-## Debugging
+## 👏 Credits
 
-Use these DataTypes for troubleshooting:
-- `Status`: Current plugin status
-- `DebugError`: Last error message
-- `DebugUrl`: API URL being called
-- `DebugSolarRadiation`: Solar data details
-- `DebugCloudCover`: Cloud cover information
+- Weather data: [Open-Meteo API](https://open-meteo.com/)
+- Reverse geocoding: [BigDataCloud API](https://www.bigdatacloud.com/)
+- Plugin framework: [Rainmeter](https://www.rainmeter.net/)
 
-## Units
+## 🐛 Issues & Support
 
-### Metric System (default)
-- Temperature: Celsius (°C)
-- Wind Speed: km/h
-- Pressure: hPa
-- Visibility: km
-- Radiation: W/m²
+Found a bug or have a feature request? [Open an issue](https://github.com/NSTechBytes/WeatherX/issues)
 
-### Imperial System
-- Temperature: Fahrenheit (°F)
-- Wind Speed: mph
-- Pressure: hPa (unchanged)
-- Visibility: km (unchanged)
-- Radiation: W/m² (unchanged)
+---
 
-## Weather Codes
-
-The plugin translates numeric weather codes into descriptive text:
-
-| Code | Description                   |
-| ---- | ----------------------------- |
-| 0    | Clear Sky                     |
-| 1    | Mainly Clear                  |
-| 2    | Partly Cloudy                 |
-| 3    | Overcast                      |
-| 45   | Fog                           |
-| 48   | Depositing Rime Fog           |
-| 51   | Light Drizzle                 |
-| 53   | Moderate Drizzle              |
-| 55   | Dense Drizzle                 |
-| 56   | Light Freezing Drizzle        |
-| 57   | Dense Freezing Drizzle        |
-| 61   | Slight Rain                   |
-| 63   | Moderate Rain                 |
-| 65   | Heavy Rain                    |
-| 66   | Light Freezing Rain           |
-| 67   | Heavy Freezing Rain           |
-| 71   | Slight Snow                   |
-| 73   | Moderate Snow                 |
-| 75   | Heavy Snow                    |
-| 77   | Snow Grains                   |
-| 80   | Slight Rain Showers           |
-| 81   | Moderate Rain Showers         |
-| 82   | Violent Rain Showers          |
-| 85   | Slight Snow Showers           |
-| 86   | Heavy Snow Showers            |
-| 95   | Thunderstorm                  |
-| 96   | Thunderstorm with Slight Hail |
-| 99   | Thunderstorm with Heavy Hail  |
-
-## Performance
-
-- Automatic HTTP fallback for network issues
-- Efficient JSON parsing without external dependencies
-- Configurable update intervals to minimize API calls
-- Memory-efficient data storage
-- Non-blocking asynchronous updates
-
-## Building from Source
-
-### Prerequisites
-- Visual Studio 2022 with C++ development tools
-- .NET Framework 4.7.2 or later
-- PowerShell (for build script)
-
-### Build Instructions
-1. Clone the repository
-2. Open PowerShell in the project directory
-3. Run the build script:
-   ```powershell
-   powershell -ExecutionPolicy Bypass -Command ". .\Build.ps1; Dist -major 1 -minor 0 -patch 0"
-   ```
-4. Find the built files in the `dist/` folder:
-   - `WeatherX_v*.rmskin` - Complete skin package
-   - `WeatherX_v*_x64_x86_dll.zip` - Plugin DLLs only
-
-## Requirements
-
-- Rainmeter 4.5 or later
-- .NET Framework 4.7.2 or later
-- Internet connection
-  
-## License
-
-MIT
-
-## Contributing
-
-Contributions are welcome! Please feel free to submit issues and enhancement requests.
+Made with ❤️ for the Rainmeter community
